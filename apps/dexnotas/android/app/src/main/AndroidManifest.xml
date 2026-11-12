@@ -48,6 +48,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- DexFiles' "Open" (docs/apps-dex.md in DexFiles) for what Notepad Studio edits as
+                 text: plain text, CSV/TSV, and the extensions of its 25 highlighted languages
+                 (upstream/src/syntax/mod.rs, `from_extension`). Word-processor documents
+                 (docx, odt, rtf, doc) are left to DexWordCraft. -->
+            <intent-filter>
+                <action android:name="io.github.dexfiles.action.OPEN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="io.github.dexfiles.extensions"
+                android:value="txt,text,log,ini,cfg,conf,csv,tsv,md,markdown,json,xml,svg,xhtml,xsl,xslt,html,htm,css,scss,yaml,yml,toml,sql,rs,py,pyi,pyw,c,h,cpp,cxx,cc,hpp,hxx,hh,cs,js,mjs,cjs,jsx,ts,tsx,go,java,swift,rb,rake,gemspec,php,phtml,lua,sh,bash,zsh,ksh,ps1,psm1,psd1" />
         </activity>
 
         <!-- GPUI's own file prompts: imports the chosen documents and answers with paths. -->
