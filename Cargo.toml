@@ -41,6 +41,10 @@ debug = "line-tables-only"
 lto = "thin"
 codegen-units = 1
 strip = true
+# A panic ends the process (after the panic hook has logged it). If it only ended the
+# thread, Android would keep the process and start `android_main` again in it on the next
+# launch, where GPUI refuses to run: it must stay on the thread it started on.
+panic = "abort"
 
 # upstream/Cargo.toml's patches, with the paths rewritten.
 [patch.crates-io]

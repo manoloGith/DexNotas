@@ -3,6 +3,7 @@
 use std::fs::File;
 use std::os::fd::AsRawFd;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use android_activity::AndroidApp;
 use gpui_mobile::android::jni;
@@ -14,6 +15,13 @@ fn android_main(app: AndroidApp) {
     let data = app.internal_data_path();
     if let Some(data) = &data {
         start_log(data);
+    }
+    // One run per process: GPUI must stay on the thread it started on, and this is a new one.
+    // (The first run ends the process when it returns, so this should not happen.)
+    static STARTED: AtomicBool = AtomicBool::new(false);
+    if STARTED.swap(true, Ordering::SeqCst) {
+        eprintln!("android_main called again in the same process: ending it");
+        std::process::exit(0);
     }
     log::set_logger(&StderrLogger).ok();
     log::set_max_level(log::LevelFilter::Info);
@@ -33,6 +41,9 @@ fn android_main(app: AndroidApp) {
     log::info!("platform ready, starting Notepad Studio");
     notepad_studio::main();
     log::info!("Notepad Studio returned");
+    // The app has saved its session and the activity is gone. End the process, so the next
+    // launch starts a new one instead of calling `android_main` again in this one.
+    std::process::exit(0);
 }
 
 /// The log of this run, `dexnotas.log` in the app's files (the previous one is kept as
