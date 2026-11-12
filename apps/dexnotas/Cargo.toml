@@ -1,0 +1,33 @@
+[package]
+name = "dexnotas"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "Notepad Studio's desktop interface on Android (Samsung DeX, desktop windowing): the native library the Android app loads"
+
+[lib]
+name = "dexnotas"
+# cdylib: the library the Android activity loads; lib: the desktop binary
+crate-type = ["cdylib", "lib"]
+
+[[bin]]
+# The same editor in a desktop window, to iterate without a device.
+name = "dexnotas-desktop"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Notepad Studio, from the fork's `dexnotas/android` branch (GPUI with an Android platform).
+notepad-studio = { path = "../../upstream" }
+log = "0.4"
+
+[target.'cfg(target_os = "android")'.dependencies]
+# The Android platform of GPUI; the same features as upstream's gpui_platform asks for.
+gpui_mobile = { package = "gpui-pre-mobile", path = "../../upstream/vendor/gpui-mobile", default-features = false, features = ["clipboard", "file_selector", "url_launcher"] }
+# The version and the activity (NativeActivity) gpui-mobile is built on.
+android-activity = { version = "0.6", features = ["native-activity"] }
+android_logger = "0.15"

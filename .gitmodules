@@ -1,0 +1,4 @@
+[submodule "upstream"]
+	path = upstream
+	url = https://github.com/manoloGith/notepad-studio
+	branch = dexnotas/android
