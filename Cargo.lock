@@ -1368,8 +1368,8 @@ name = "dexnotas"
 version = "0.1.0"
 dependencies = [
  "android-activity",
- "android_logger",
  "gpui-pre-mobile",
+ "libc",
  "log",
  "notepad-studio",
 ]

@@ -1,5 +1,7 @@
 //! `android_main`: the environment Notepad Studio expects, GPUI's Android platform, and the app.
 
+use std::fs::File;
+use std::os::fd::AsRawFd;
 use std::path::Path;
 
 use android_activity::AndroidApp;
@@ -9,14 +11,18 @@ use gpui_mobile::android::jni;
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
 fn android_main(app: AndroidApp) {
-    android_logger::init_once(
-        android_logger::Config::default().with_max_level(log::LevelFilter::Info).with_tag("dexnotas"),
-    );
-    // Panics go to logcat; Notepad Studio adds its own report (panic.log) on top.
+    let data = app.internal_data_path();
+    if let Some(data) = &data {
+        start_log(data);
+    }
+    log::set_logger(&StderrLogger).ok();
+    log::set_max_level(log::LevelFilter::Info);
+    // Panics are logged (with where they happened) before the thread unwinds.
     jni::install_panic_hook();
+    log::info!("android_main: DexNotas {}", env!("CARGO_PKG_VERSION"));
 
-    match app.internal_data_path() {
-        Some(data) => set_environment(&data),
+    match &data {
+        Some(data) => set_environment(data),
         None => log::error!("no internal data path: settings and sessions will not be saved"),
     }
 
@@ -27,6 +33,39 @@ fn android_main(app: AndroidApp) {
     log::info!("platform ready, starting Notepad Studio");
     notepad_studio::main();
     log::info!("Notepad Studio returned");
+}
+
+/// The log of this run, `dexnotas.log` in the app's files (the previous one is kept as
+/// `dexnotas.prev.log`): stdout and stderr go there, so it holds what Notepad Studio prints,
+/// the `log` records of GPUI's platform and panics. Debug builds show it in the "DexNotas
+/// diagnostics" launcher entry.
+#[allow(unsafe_code)]
+fn start_log(data: &Path) {
+    let log = data.join("dexnotas.log");
+    let _ = std::fs::rename(&log, data.join("dexnotas.prev.log"));
+    let Ok(file) = File::create(&log) else { return };
+    // SAFETY: both descriptors are valid for the call; the file stays open through 1 and 2.
+    unsafe {
+        libc::dup2(file.as_raw_fd(), libc::STDOUT_FILENO);
+        libc::dup2(file.as_raw_fd(), libc::STDERR_FILENO);
+    }
+}
+
+/// `log` records on stderr, which [`start_log`] points at the log file.
+struct StderrLogger;
+
+impl log::Log for StderrLogger {
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        metadata.level() <= log::Level::Info
+    }
+
+    fn log(&self, record: &log::Record) {
+        if self.enabled(record.metadata()) {
+            eprintln!("{:<5} {}: {}", record.level(), record.target(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
 }
 
 /// Notepad Studio finds its settings, sessions, logs and temporary files through `HOME` and the

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diag_name">DexNotas diagnóstico</string>
+    <string name="diag_copy">Copiar</string>
+    <string name="diag_share">Compartir</string>
+    <string name="diag_refresh">Actualizar</string>
+    <string name="diag_copied">Copiado</string>
+</resources>

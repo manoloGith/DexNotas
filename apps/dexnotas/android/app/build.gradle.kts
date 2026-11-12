@@ -109,6 +109,8 @@ android {
         includeInApk = false
         includeInBundle = false
     }
+    // BuildConfig: the diagnostics screen of debug builds shows the version.
+    buildFeatures { buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

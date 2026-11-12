@@ -30,4 +30,5 @@ log = "0.4"
 gpui_mobile = { package = "gpui-pre-mobile", path = "../../upstream/vendor/gpui-mobile", default-features = false, features = ["clipboard", "file_selector", "url_launcher"] }
 # The version and the activity (NativeActivity) gpui-mobile is built on.
 android-activity = { version = "0.6", features = ["native-activity"] }
-android_logger = "0.15"
+# dup2: stdout and stderr into the log file.
+libc = "0.2"

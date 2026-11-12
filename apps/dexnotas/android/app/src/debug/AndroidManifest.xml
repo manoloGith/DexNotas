@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug builds only: a second launcher entry that shows the app's log and crash report,
+             to copy or share them from the device without adb. It runs in its own process, so it
+             works when the native side crashes or hangs. -->
+        <activity
+            android:name="io.github.dexnotas.DiagActivity"
+            android:exported="true"
+            android:label="@string/diag_name"
+            android:process=":diag"
+            android:taskAffinity="io.github.dexnotas.diag"
+            android:theme="@android:style/Theme.Material.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
