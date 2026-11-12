@@ -9,8 +9,9 @@ No se reescribe nada: se compila para Android el propio Notepad Studio, con todo
 archivos, vista previa de Markdown, RTF/DOCX/ODT, CSV, macros, corrector), y se le añade la capa
 de plataforma Android.
 
-> Estado: **fase 0** (prueba técnica). El APK se compila; **todavía no se ha probado en ningún
-> dispositivo**. Plan y estado: [docs/plan.md](docs/plan.md).
+> Estado: **fase 0 terminada**. La app arranca y muestra la interfaz en DeX (Galaxy S24). Falta
+> comprobar ratón, teclado y ciclo de vida, y los diálogos de archivo aún no funcionan. Plan y
+> estado: [docs/plan.md](docs/plan.md).
 
 ## Cómo está hecho
 

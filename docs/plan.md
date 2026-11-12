@@ -6,7 +6,7 @@ todas sus funciones y se sigue a upstream moviendo un submódulo.
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 0 | Prueba técnica ([phase-0.md](phase-0.md)): GPUI actualizado en el fork, plataforma Android de gpui-mobile, Notepad Studio como biblioteca, este repositorio, Gradle + cargo-ndk, CI | ✅ compila el APK · ⬜ probar en DeX |
+| 0 | Prueba técnica ([phase-0.md](phase-0.md)): GPUI actualizado en el fork, plataforma Android de gpui-mobile, Notepad Studio como biblioteca, este repositorio, Gradle + cargo-ndk, CI | ✅ la interfaz se ve en DeX (Galaxy S24, Android 17) |
 | 1 | Lo que falle en el dispositivo: arranque, ventana, texto, ratón, teclado físico, cerrar y reabrir | ⬜ |
 | 2 | Archivos: abrir, guardar y guardar como con el selector de Android (backend de `rfd`), cuadros de mensaje, portapapeles, «Abrir con» y «Compartir» | ⬜ |
 | 3 | Escritorio DeX: cursores, título de la ventana, arrastrar y soltar, preguntar al cerrar, autoguardado | ⬜ |
