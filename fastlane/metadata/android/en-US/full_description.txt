@@ -1,0 +1,10 @@
+DexNotas is a text and code editor made for Samsung DeX and Android's desktop windowing (monitor, mouse and keyboard). It also works on phones and tablets.
+
+* Tabs that are never lost: the open tabs, and the text you have not saved, come back when you reopen the app, even after DeX's close button or the system ended it.
+* Find and replace with regular expressions, match case and whole words, capture groups ($1) in the replacement, and find in all tabs.
+* Syntax highlighting for 25 languages: Rust, Python, C, C++, C#, Java, JavaScript, TypeScript, TSX, Go, Swift, Ruby, PHP, Lua, Shell, PowerShell, SQL, HTML, CSS, SCSS, XML, JSON, YAML, TOML and Markdown.
+* Format, minify and check JSON and XML (also HTML and SVG); check YAML and TOML, with the line of the error.
+* Reads and writes UTF-8 (with or without BOM), UTF-16 LE/BE and ANSI (Windows-1252 and other legacy code pages); converts line endings (CRLF, LF, CR).
+* Macros: record what you type and the commands you use, play them once, several times or to the end of the file, save them with a name and a Ctrl+Alt+number shortcut.
+* Line numbers, current line, word wrap, zoom, comment lines, duplicate, delete and sort lines, change case, keep the indent.
+* Opens the files DexFiles hands over, "Open with" and "Share" from other apps; saves back to the original document.

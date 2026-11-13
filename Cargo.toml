@@ -1,16 +1,11 @@
-# DexNotas: Notepad Studio's desktop interface on Android, for Samsung DeX and Android desktop
-# windowing.
-#
-# The editor comes from `upstream/` (a git submodule: the `dexnotas/android` branch of the
-# manoloGith/notepad-studio fork, which is Notepad Studio plus the changes Android needs). This
-# workspace only adds the Android app.
-#
-# `upstream/` is its own workspace, and `[patch]` only applies from the root of the build, so the
-# patches below mirror upstream's `Cargo.toml` (keep them in step when the submodule moves).
+# DexNotas: a text and code editor for Samsung DeX and Android's desktop windowing, in Rust with
+# egui, built like the other Dex apps (DexFiles, DexPdfCraft) on craft-android, the shared
+# Android layer (the `craft-android/` submodule: mouse, keyboard, lifecycle, pickers,
+# diagnostics…).
 [workspace]
 resolver = "3"
 members = ["apps/dexnotas"]
-exclude = ["upstream"]
+exclude = ["craft-android"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,8 +15,7 @@ rust-version = "1.95"
 repository = "https://github.com/manoloGith/DexNotas"
 
 [workspace.lints.rust]
-# `android_main` must be `#[unsafe(no_mangle)]` and the environment is set with `set_var`;
-# everything else stays free of unsafe code.
+# `android_main` must be `#[unsafe(no_mangle)]`; nothing else is unsafe.
 unsafe_code = "deny"
 
 [workspace.lints.clippy]
@@ -40,20 +34,32 @@ debug = "line-tables-only"
 [profile.release]
 lto = "thin"
 codegen-units = 1
-strip = true
-# A panic ends the process (after the panic hook has logged it). If it only ended the
-# thread, Android would keep the process and start `android_main` again in it on the next
-# launch, where GPUI refuses to run: it must stay on the thread it started on.
-panic = "abort"
 
-# upstream/Cargo.toml's patches, with the paths rewritten.
+[profile.release.package."*"]
+opt-level = "s"
+
+# Text layout and highlighting stay fast.
+[profile.release.package.epaint]
+opt-level = 3
+[profile.release.package.egui]
+opt-level = 3
+[profile.release.package.tree-sitter]
+opt-level = 3
+[profile.release.package.tree-sitter-highlight]
+opt-level = 3
+[profile.release.package.dexnotas]
+opt-level = 3
+
+# The egui and winit that craft-android is built and tested with (storytold's forks; winit with
+# craft-android's DeX patches, craft-android/winit/PATCHES.md).
 [patch.crates-io]
-async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
-async-task = { git = "https://github.com/zed-industries/async-task.git", rev = "015845a19fc31752c02367567d3b8900a406f9da" }
-calloop = { git = "https://github.com/zed-industries/calloop", rev = "3759371fee14c40066d64777e2a36b6ffcc22590" }
-notify = { git = "https://github.com/zed-industries/notify", rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54" }
-notify-types = { git = "https://github.com/zed-industries/notify", rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54" }
-khronos-egl = { git = "https://github.com/zed-industries/khronos-egl", rev = "42214b36347b108fd9630ca6254b96dde59e04fe" }
-
-[patch."https://github.com/zed-industries/xim-rs.git"]
-zed-xim = { path = "upstream/vendor/xim" }
+ecolor = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+emath = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+epaint = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+epaint_default_fonts = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+egui = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+egui-winit = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+egui-wgpu = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+egui_glow = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+eframe = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
+winit = { path = "craft-android/winit" }

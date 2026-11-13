@@ -1,75 +1,83 @@
 # DexNotas
 
-[Notepad Studio](https://github.com/alesloa/notepad-studio), un editor de texto al estilo de
-Notepad++, en Android: pensado para **Samsung DeX** y para el modo de ventanas de escritorio de
-Android (monitor, ratón y teclado).
+Un editor de texto y código para **Samsung DeX** y el modo escritorio de Android (monitor, ratón y
+teclado), que también funciona en el móvil y en Linux.
 
-No se reescribe nada: se compila para Android el propio Notepad Studio, con todo lo que trae
-(pestañas y sesiones, resaltado de 25 lenguajes, buscar y reemplazar con regex, buscar en
-archivos, vista previa de Markdown, RTF/DOCX/ODT, CSV, macros, corrector), y se le añade la capa
-de plataforma Android.
+Está hecho en Rust con egui, igual que [DexFiles](https://github.com/manoloGith/DexFiles) y
+[DexPdfCraft](https://github.com/manoloGith/DexPdfCraft), sobre la misma capa Android compartida,
+[craft-android](https://github.com/manoloGith/craft-android): ratón completo, teclado físico,
+teclado en pantalla, selector de archivos con escritura de vuelta al documento, cierre y
+reapertura fiables y un informe de diagnóstico que se copia sin adb.
 
-> Estado: **fase 0 terminada**. La app arranca y muestra la interfaz en DeX (Galaxy S24). Falta
-> comprobar ratón, teclado y ciclo de vida, y los diálogos de archivo aún no funcionan. Plan y
-> estado: [docs/plan.md](docs/plan.md).
+- **Pestañas que no se pierden**: las pestañas abiertas y el texto sin guardar vuelven al abrir la
+  app, aunque se haya cerrado con la X de DeX o la haya parado el sistema. Se guardan un momento
+  después de cada cambio y al perder el foco. Opcionalmente, también los archivos.
+- **Buscar y reemplazar**: texto o expresión regular, mayúsculas, palabra completa, grupos `$1` al
+  reemplazar, todas las coincidencias marcadas, buscar en todas las pestañas, ir a línea.
+- **Resaltado de 25 lenguajes** con tree-sitter (las gramáticas de
+  [Notepad Studio](https://github.com/alesloa/notepad-studio)), detectados por la extensión o por
+  `#!`, y elegibles a mano.
+- **Formatear**: JSON y XML/HTML/SVG (formatear, compactar, validar); YAML y TOML (validar), con
+  la línea del error.
+- **Codificaciones**: UTF-8 (con o sin BOM), UTF-16 LE/BE (con o sin BOM), ANSI (Windows-1252) y
+  otras páginas de códigos; reabrir con otra, convertir, fin de línea CRLF/LF/CR.
+- **Macros**: grabar (Ctrl+Mayús+R), reproducir una vez, N veces o hasta el final, guardarlas con
+  nombre y atajo Ctrl+Alt+1…9.
+- **Edición**: números de línea, línea actual, ajuste de línea, zoom, comentar, duplicar, eliminar
+  y ordenar líneas, mayúsculas/minúsculas, sangría con Tab/Mayús+Tab, mantener la sangría.
+- **Ecosistema Dex**: DexFiles la ofrece para los archivos de texto y código; «Abrir con» y
+  «Compartir» desde otras apps.
 
-## Cómo está hecho
+Estado y fases: [docs/plan.md](docs/plan.md). Qué probar: [docs/testing.md](docs/testing.md).
+
+## Estructura
 
 ```
 DexNotas/
-├── upstream/              submódulo: fork manoloGith/notepad-studio, rama dexnotas/android
-│   ├── src/               Notepad Studio (una biblioteca, `notepad_studio`, y su binario)
-│   ├── vendor/gpui/       GPUI de Zed (revisión 294169ae): interfaz, renderizador wgpu
-│   ├── vendor/gpui-mobile/  la plataforma Android de GPUI (Rust y Java)
-│   └── android/rfd-shim/  diálogos de archivo: rfd en escritorio, un backend en Android
-├── apps/dexnotas/         el crate Rust de la app (cdylib que carga Android)
-│   ├── src/android.rs     android_main: entorno, plataforma GPUI, notepad_studio::main()
-│   ├── src/main.rs        la misma app en escritorio, para iterar sin dispositivo
-│   └── android/           proyecto Gradle: NativeActivity (GpuiInputActivity) y manifiesto para DeX
-└── docs/                  plan por fases y notas de cada fase
+├── craft-android/          submódulo: la capa Android compartida (y winit con los parches de DeX)
+├── apps/dexnotas/          la app (cdylib para Android + binario de escritorio)
+│   ├── src/text.rs         codificaciones y fines de línea
+│   ├── src/document.rs     un documento abierto: abrir, guardar, recargar
+│   ├── src/session.rs      la sesión: pestañas y texto sin guardar, ajustes, macros
+│   ├── src/find.rs         buscar y reemplazar
+│   ├── src/format.rs       JSON, XML, YAML, TOML
+│   ├── src/edit_ops.rs     operaciones del menú Editar
+│   ├── src/macros.rs       grabar y reproducir
+│   ├── src/syntax/         resaltado (tree-sitter)
+│   ├── src/ui/             la interfaz egui
+│   ├── src/android.rs      android_main y el puente con MainActivity
+│   ├── strings.tsv         textos en inglés y español
+│   └── android/            proyecto Gradle (MainActivity : CraftActivity)
+└── docs/
 ```
 
-Notepad Studio usa GPUI, la biblioteca de interfaz de Zed, que no tiene plataforma Android
-oficial. El fork hace tres cosas ([docs/fork.md](docs/fork.md)): actualiza GPUI a una revisión
-con las plataformas separadas, le conecta la plataforma Android de
-[gpui-mobile](https://github.com/aidant/gpui-mobile) y quita o sustituye lo que Android no tiene
-(diálogos nativos, papelera, terminal).
-
 ## Compilar
-
-Requisitos: `rustup` (instala la versión y los targets de `rust-toolchain.toml`),
-`cargo install cargo-ndk --version 4.1.2 --locked`, Android SDK (plataforma 36, build-tools
-36.0.0), NDK 29.0.14206865 y JDK 17 o superior.
 
 ```bash
 git clone --recursive https://github.com/manoloGith/DexNotas
 ```
 
-El APK de depuración (arm64-v8a para el dispositivo, x86_64 para el emulador):
+Escritorio (para iterar sin dispositivo):
 
 ```bash
-cd DexNotas/apps/dexnotas/android && ./gradlew assembleDebug
+cargo run -p dexnotas --features desktop -- archivo.txt
 ```
 
-Solo arm64, que es más rápido:
+Pruebas:
 
 ```bash
-./gradlew assembleDebug -Pdexnotas.abis=arm64-v8a
+cargo test -p dexnotas --features desktop
 ```
 
-Instalar en un dispositivo conectado:
+APK (Rust según `rust-toolchain.toml`, `cargo-ndk` 4.1.2, NDK 29.0.14206865, JDK 17, SDK 36):
 
 ```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-La misma app en escritorio Linux, sin dispositivo:
-
-```bash
-cargo run -p dexnotas
+cd apps/dexnotas/android && ./gradlew assembleDebug -Pdexnotas.abis=arm64-v8a
 ```
 
 ## Licencia
 
-MIT o Apache-2.0, a elegir. Notepad Studio, GPUI y gpui-mobile conservan las suyas:
-[NOTICE.md](NOTICE.md).
+MIT o Apache-2.0, a elegir. Créditos: [NOTICE.md](NOTICE.md).
+
+El intento anterior (Notepad Studio compilado para Android con GPUI) está en la rama
+`notepad-studio-gpui`.

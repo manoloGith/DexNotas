@@ -1,0 +1,1 @@
+Editor de texto y código para Samsung DeX: pestañas, regex, resaltado, macros

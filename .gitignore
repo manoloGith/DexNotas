@@ -1,4 +1,3 @@
-/target/
-*.apk
+/target
+*.keystore
 local.properties
-/.build-inputs/

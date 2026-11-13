@@ -1,28 +1,36 @@
 # Plan por fases
 
-Enfoque: **compilar para Android el propio Notepad Studio** (unas 186.000 líneas de Rust sobre
-GPUI) en lugar de reescribirlo, y añadir solo la capa de plataforma Android. Así se conservan
-todas sus funciones y se sigue a upstream moviendo un submódulo.
+DexNotas es una app propia en egui con la estructura de DexFiles: sin fork de otra app, con la
+capa Android de `craft-android` y el resaltado de Notepad Studio.
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 0 | Prueba técnica ([phase-0.md](phase-0.md)): GPUI actualizado en el fork, plataforma Android de gpui-mobile, Notepad Studio como biblioteca, este repositorio, Gradle + cargo-ndk, CI | ✅ la interfaz se ve en DeX (Galaxy S24, Android 17) |
-| 1 | Lo que falle en el dispositivo: arranque, ventana, texto, ratón, teclado físico, cerrar y reabrir | ⬜ |
-| 2 | Archivos: abrir, guardar y guardar como con el selector de Android (backend de `rfd`), cuadros de mensaje, portapapeles, «Abrir con» y «Compartir» | ⬜ |
-| 3 | Escritorio DeX: cursores, título de la ventana, arrastrar y soltar, preguntar al cerrar, autoguardado | ⬜ |
-| 4 | Móvil y tablet sin DeX: teclado en pantalla (IME), barras del sistema y notch | ⬜ |
-| 5 | Imprimir, enlaces, DexFiles (`io.github.dexfiles.action.OPEN`) | ⬜ |
-| 6 | Tamaño del APK, clave de release, releases en GitHub, metadatos de F-Droid | ⬜ |
+| 0 | Repositorio, `craft-android`, Gradle, CI, ventana egui en Android y escritorio | ✅ |
+| 1 | Pestañas, sesión persistente con autoguardado, abrir/guardar (selector de Android), codificaciones UTF-8/UTF-16/ANSI y fines de línea | ✅ |
+| 2 | Resaltado de 25 lenguajes, números de línea, línea actual, lenguaje a mano | ✅ |
+| 3 | Buscar y reemplazar (regex, grupos, palabra, mayúsculas), marcar coincidencias, buscar en pestañas, ir a línea | ✅ |
+| 4 | JSON y XML: formatear, compactar, validar; YAML y TOML: validar | ✅ |
+| 5 | Macros: grabar, reproducir 1/N veces/hasta el final, guardar con nombre y atajo | ✅ |
+| 6 | «Abrir con», DexFiles, compartir texto, metadatos de F-Droid, workflow de release | ✅ |
 
-## Riesgos conocidos
+✅ quiere decir hecho y probado en Linux (pruebas automáticas y la ventana bajo Xvfb). **En
+Android solo se ha comprobado que compila y se empaqueta**; la lista de qué probar en DeX está en
+[testing.md](testing.md).
 
-1. **La plataforma Android de GPUI es de la comunidad** (gpui-mobile, «experimental»), no de
-   Zed. Su IME y su ciclo de vida están incompletos; lo que falle en DeX habrá que arreglarlo en
-   el fork, con lo aprendido en [craft-android](https://github.com/manoloGith/craft-android)
-   (ratón, teclado físico, cerrar y reabrir).
-2. **Notepad Studio es joven** (v0.0.7, un autor). Si upstream se para, el mantenimiento es
-   nuestro.
-3. **El fork es grande**: cambia la versión de GPUI de upstream. Rebasarlo cuesta más que en
-   DexPdfCraft, salvo que upstream adopte el GPUI nuevo.
-4. **Drivers GPU** (Mali, Adreno, Xclipse) con wgpu: solo se sabrá en el dispositivo.
-5. **Los tests de Notepad Studio** no se han ejecutado contra el GPUI nuevo.
+## Decisiones
+
+- **Las pestañas no se cierran al salir.** Cerrar la ventana (Atrás, la X de DeX, Salir) nunca
+  pregunta: el texto sin guardar se queda en la sesión. Solo cerrar una pestaña con cambios
+  pregunta si guardar.
+- **El texto en memoria usa `\n`**; el fin de línea del archivo se recuerda y se aplica al guardar.
+- **ANSI** es Windows-1252 al detectar; otras páginas de códigos se eligen con «Reabrir con». Al
+  guardar en ANSI, lo que no cabe se escribe como `?` (avisa antes).
+- **YAML y TOML solo se validan**: formatearlos con las bibliotecas disponibles pierde los
+  comentarios.
+- **El editor es el `TextEdit` de egui**: sin selección por columnas, y por encima de 2 MB se
+  muestra sin colores (los archivos de más de 64 MB no se abren).
+
+## Pendiente o posible
+
+- Teclado en pantalla en el móvil: depende de craft-android, sin probar aquí.
+- Imprimir, vista previa de Markdown, selección por columnas, buscar en archivos de una carpeta.

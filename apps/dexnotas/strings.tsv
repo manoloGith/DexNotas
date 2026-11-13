@@ -1,0 +1,137 @@
+# key	English	Spanish (tab-separated; build.rs sorts them)
+about	About DexNotas	Acerca de DexNotas
+about_credits	Highlighting grammars and language setup from Notepad Studio (Apache-2.0). Interface with egui; Android layer craft-android.	Gramáticas de resaltado y configuración de lenguajes de Notepad Studio (Apache-2.0). Interfaz con egui; capa Android craft-android.
+about_text	A text and code editor for Samsung DeX and Android desktop windowing: tabs that come back with their unsaved text, regex find and replace, highlighting for 25 languages, JSON/XML formatting, UTF-8/UTF-16/ANSI and macros.	Un editor de texto y código para Samsung DeX y las ventanas de escritorio de Android: pestañas que vuelven con su texto sin guardar, buscar y reemplazar con regex, resaltado de 25 lenguajes, formato JSON/XML, UTF-8/UTF-16/ANSI y macros.
+auto_indent	Keep the indent on Enter	Mantener la sangría al pulsar Intro
+autosave_files	Also save files automatically	Guardar también los archivos automáticamente
+bom	Byte order mark (BOM)	Marca de orden de bytes (BOM)
+cancel	Cancel	Cancelar
+cannot_open	Cannot open the file	No se puede abrir el archivo
+cannot_save	Cannot save the file	No se puede guardar el archivo
+changed_on_disk	Changed by another app	Modificado por otra aplicación
+changed_on_disk_text	{} was changed outside DexNotas, and has unsaved changes here. Reload it (losing them) or keep yours?	{} se ha modificado fuera de DexNotas y aquí tiene cambios sin guardar. ¿Recargarlo (perdiéndolos) o conservar los tuyos?
+close	Close	Cerrar
+close_all	Close all saved tabs	Cerrar todas las pestañas guardadas
+close_others	Close other saved tabs	Cerrar las demás pestañas guardadas
+close_tab	Close tab	Cerrar pestaña
+col	Col	Col
+convert_to	Convert to (on save)	Convertir a (al guardar)
+copied_instead	No app to share with: the text was copied	No hay app para compartir: se ha copiado el texto
+copy_path	Copy path	Copiar ruta
+dark_theme	Dark theme	Tema oscuro
+delete	Delete	Borrar
+delete_lines	Delete line	Eliminar línea
+dont_save	Don't save	No guardar
+duplicate_lines	Duplicate line	Duplicar línea
+find	Find	Buscar
+find_hint	Find	Buscar
+find_in_tabs	Find in all tabs	Buscar en todas las pestañas
+find_in_tabs_short	In all tabs	En todas las pestañas
+find_next	Find next	Buscar siguiente
+find_prev	Find previous	Buscar anterior
+go	Go	Ir
+go_to_line	Go to line	Ir a la línea
+groups_hint	$1, $2… insert the groups	$1, $2… insertan los grupos
+highlight_line	Highlight the current line	Resaltar la línea actual
+indent	Indent	Aumentar sangría
+indent_spaces	Tab inserts spaces	Tab inserta espacios
+indent_width	Indent width	Ancho de sangría
+interface_language	Interface language	Idioma de la interfaz
+json_check	Check JSON	Validar JSON
+json_minify	Minify JSON	Compactar JSON
+json_pretty	Format JSON	Formatear JSON
+keep_mine	Keep mine	Conservar los míos
+kept_unsaved	Tabs with unsaved changes were kept open	Se han dejado abiertas las pestañas con cambios sin guardar
+line_endings	Line endings	Fin de línea
+line_numbers	Line numbers	Números de línea
+line_range	Line (1 to {})	Línea (de 1 a {})
+lines	lines	líneas
+ln	Ln	Lín
+lossy	Some bytes are not valid {}: shown as �. Try Encoding ▸ Reopen with.	Algunos bytes no son {} válido: se muestran como �. Prueba Codificación ▸ Reabrir con.
+lower	lowercase	minúsculas
+macro	Macro	Macro
+macro_name	Name	Nombre
+manage_macros	Manage macros…	Gestionar macros…
+match_case	Match case	Distinguir mayúsculas
+matches	{} matches	{} coincidencias
+matches_in_tabs	{} matches in all tabs	{} coincidencias en todas las pestañas
+menu_edit	Edit	Editar
+menu_encoding	Encoding	Codificación
+menu_file	File	Archivo
+menu_help	Help	Ayuda
+menu_language	Language	Lenguaje
+menu_macros	Macros	Macros
+menu_search	Search	Buscar
+menu_tools	Tools	Herramientas
+menu_view	View	Ver
+new	New	Nuevo
+new_tab	New tab (Ctrl+N)	Nueva pestaña (Ctrl+N)
+no_macros	No saved macros. Record one (Ctrl+Shift+R), then Macros ▸ Save.	No hay macros guardadas. Graba una (Ctrl+Mayús+R) y luego Macros ▸ Guardar.
+no_shortcut	No shortcut	Sin atajo
+none	(none)	(ninguno)
+not_found	Not found: {}	No encontrado: {}
+not_reopened	Some tabs could not be reopened	Algunas pestañas no se han podido reabrir
+not_saved_yet	The document has not been saved yet	El documento todavía no se ha guardado
+nothing_recorded	No macro recorded yet (Ctrl+Shift+R)	Todavía no hay una macro grabada (Ctrl+Mayús+R)
+ok	OK	Aceptar
+open	Open…	Abrir…
+outdent	Decrease indent	Reducir sangría
+plain_text	Plain text	Texto plano
+play	Play	Reproducir
+play_times	Play several times…	Reproducir varias veces…
+play_to_end	Play until the end of the file	Reproducir hasta el final del archivo
+played	Macro played {} time(s)	Macro reproducida {} vez/veces
+playing	Playing macro	Reproduciendo macro
+preferences	Preferences	Preferencias
+quit	Exit (tabs are kept)	Salir (las pestañas se conservan)
+rec	Recording macro (Ctrl+Shift+R stops)	Grabando macro (Ctrl+Mayús+R para)
+recent	Recent files	Archivos recientes
+recorded	Macro recorded: {} steps	Macro grabada: {} pasos
+recording	Recording a macro…	Grabando una macro…
+redo	Redo	Rehacer
+regex	Regular expression	Expresión regular
+reload	Reload from disk	Recargar desde el disco
+reloaded	{} changed on disk and was reloaded	{} ha cambiado en el disco y se ha recargado
+reopen_as	Reopen with	Reabrir con
+replace	Replace	Reemplazar
+replace_all	Replace all	Reemplazar todo
+replace_hint	Replace with	Reemplazar por
+replace_one	Replace	Reemplazar
+replaced	{} replaced	{} reemplazadas
+save	Save	Guardar
+save_all	Save all	Guardar todo
+save_as	Save as…	Guardar como…
+save_first	Save or undo the changes first	Primero guarda o deshaz los cambios
+save_macro	Save the recorded macro…	Guardar la macro grabada…
+saved	Saved {}	Guardado {}
+select_all	Select all	Seleccionar todo
+selected	{} selected	{} seleccionados
+session_not_saved	The open tabs could not be saved: {}	No se han podido guardar las pestañas abiertas: {}
+share	Share text…	Compartir texto…
+sort_asc	Sort lines A→Z	Ordenar líneas A→Z
+sort_desc	Sort lines Z→A	Ordenar líneas Z→A
+start_recording	Start recording	Empezar a grabar
+steps	{} steps	{} pasos
+stop_recording	Stop recording	Detener la grabación
+stop_recording_first	Stop recording first	Primero detén la grabación
+system_language	System language	Idioma del sistema
+toggle_comment	Comment / uncomment	Comentar / descomentar
+toml_check	Check TOML	Validar TOML
+too_large	The file is too large ({} MB)	El archivo es demasiado grande ({} MB)
+trim_trailing	Remove trailing spaces	Quitar espacios al final de línea
+undo	Undo	Deshacer
+unmappable	Some characters don't exist in {} and will be saved as ?	Algunos caracteres no existen en {} y se guardarán como ?
+unsaved_text	{} has unsaved changes.	{} tiene cambios sin guardar.
+unsaved_title	Save changes?	¿Guardar los cambios?
+untitled	new	nuevo
+upper	UPPERCASE	MAYÚSCULAS
+valid	{} is valid	{} es válido
+whole_word	Whole word	Palabra completa
+word_wrap	Word wrap	Ajuste de línea
+xml_check	Check XML	Validar XML
+xml_minify	Minify XML	Compactar XML
+xml_pretty	Format XML	Formatear XML
+yaml_check	Check YAML	Validar YAML
+zoom_in	Zoom in	Aumentar
+zoom_out	Zoom out	Reducir
+zoom_reset	Reset zoom	Tamaño normal

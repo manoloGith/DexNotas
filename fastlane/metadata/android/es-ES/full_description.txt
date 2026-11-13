@@ -1,0 +1,10 @@
+DexNotas es un editor de texto y código hecho para Samsung DeX y las ventanas de escritorio de Android (monitor, ratón y teclado). También funciona en móviles y tabletas.
+
+* Pestañas que no se pierden: las pestañas abiertas, y el texto que no has guardado, vuelven al abrir la app, incluso tras la X de DeX o si el sistema la cerró.
+* Buscar y reemplazar con expresiones regulares, mayúsculas y palabra completa, grupos ($1) al reemplazar, y buscar en todas las pestañas.
+* Resaltado de sintaxis de 25 lenguajes: Rust, Python, C, C++, C#, Java, JavaScript, TypeScript, TSX, Go, Swift, Ruby, PHP, Lua, Shell, PowerShell, SQL, HTML, CSS, SCSS, XML, JSON, YAML, TOML y Markdown.
+* Formatear, compactar y validar JSON y XML (también HTML y SVG); validar YAML y TOML, con la línea del error.
+* Lee y escribe UTF-8 (con o sin BOM), UTF-16 LE/BE y ANSI (Windows-1252 y otras páginas de códigos); convierte el fin de línea (CRLF, LF, CR).
+* Macros: graba lo que escribes y los comandos que usas, reprodúcelas una vez, varias o hasta el final del archivo, y guárdalas con nombre y un atajo Ctrl+Alt+número.
+* Números de línea, línea actual, ajuste de línea, zoom, comentar, duplicar, eliminar y ordenar líneas, cambiar mayúsculas, mantener la sangría.
+* Abre los archivos que le pasa DexFiles, «Abrir con» y «Compartir» desde otras apps, y guarda en el documento original.

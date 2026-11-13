@@ -4,36 +4,78 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 publish = false
-description = "Notepad Studio's desktop interface on Android (Samsung DeX, desktop windowing): the native library the Android app loads"
+description = "DexNotas: a text and code editor for Samsung DeX and Android desktop windowing (egui)"
 
 [lib]
 name = "dexnotas"
-# cdylib: the library the Android activity loads; lib: the desktop binary
+# cdylib: the library the Android activity loads; lib: the desktop binary and the tests
 crate-type = ["cdylib", "lib"]
 
 [[bin]]
-# The same editor in a desktop window, to iterate without a device.
+# The same window on a desktop, to iterate without a device.
 name = "dexnotas-desktop"
 path = "src/main.rs"
+required-features = ["desktop"]
+
+[features]
+desktop = ["eframe/x11", "eframe/wayland", "dep:rfd"]
+
+[dependencies]
+egui = { version = "0.37", features = ["default_fonts", "serde"] }
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "wgpu", "glow", "accesskit", "persistence"] }
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision"] }
+# Reading and writing text in UTF-8, UTF-16 and the legacy ("ANSI") code pages.
+encoding_rs = "0.8"
+regex = "1"
+# Formatting XML.
+quick-xml = "0.38"
+# Validating YAML and TOML.
+serde_yaml_ng = "0.10"
+toml = "0.9"
+craft-android = { path = "../../craft-android/crates/craft-android" }
+
+# Syntax highlighting with tree-sitter: the grammars Notepad Studio uses
+# (https://github.com/alesloa/notepad-studio, Apache-2.0), at the versions it pins.
+tree-sitter = "0.25"
+tree-sitter-highlight = "0.25"
+tree-sitter-rust = "0.23"
+tree-sitter-python = "0.23"
+tree-sitter-c = "0.23"
+tree-sitter-c-sharp = "0.23"
+tree-sitter-javascript = "0.23"
+tree-sitter-typescript = "0.23"
+tree-sitter-json = "0.23"
+tree-sitter-md = "0.3"
+tree-sitter-bash = "0.25.1"
+tree-sitter-powershell = "0.26.4"
+tree-sitter-go = "0.25.0"
+tree-sitter-java = "0.23.5"
+tree-sitter-swift = "0.7.2"
+tree-sitter-ruby = "0.23.1"
+tree-sitter-php = "0.24.2"
+tree-sitter-cpp = "0.23.4"
+tree-sitter-lua = "0.5.0"
+tree-sitter-html = "0.23.2"
+tree-sitter-css = "0.25.0"
+tree-sitter-scss = "1.0.0"
+tree-sitter-yaml = "0.7.2"
+tree-sitter-toml-ng = "0.7.0"
+tree-sitter-xml = "0.7.0"
+tree-sitter-sequel = "0.3.11"
+
+# The desktop's file dialogs (Android's come from craft-android).
+rfd = { version = "0.15", optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+eframe = { version = "0.37", default-features = false, features = ["android-game-activity"] }
+jni = "0.22.4"
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true
-
-[dependencies]
-# Notepad Studio, from the fork's `dexnotas/android` branch (GPUI with an Android platform).
-notepad-studio = { path = "../../upstream" }
-log = "0.4"
-
-[target.'cfg(target_os = "android")'.dependencies]
-# The Android platform of GPUI; the same features as upstream's gpui_platform asks for.
-gpui_mobile = { package = "gpui-pre-mobile", path = "../../upstream/vendor/gpui-mobile", default-features = false, features = ["clipboard", "file_selector", "url_launcher"] }
-# The version and the activity (NativeActivity) gpui-mobile is built on.
-android-activity = { version = "0.6", features = ["native-activity"] }
-# dup2: stdout and stderr into the log file.
-libc = "0.2"
-# Message boxes (src/dialogs.rs): the fork's rfd shim, whose backend the app installs, and the
-# JNI calls to show them (the jni version gpui-mobile uses).
-rfd = { package = "rfd-android-shim", path = "../../upstream/android/rfd-shim" }
-jni = "0.22"
-futures-channel = "0.3"

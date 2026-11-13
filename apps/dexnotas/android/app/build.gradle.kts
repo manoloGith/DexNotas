@@ -31,6 +31,7 @@ abstract class CargoNdkBuild : DefaultTask() {
     @get:Input abstract val apiLevel: Property<Int>
     @get:Input abstract val release: Property<Boolean>
     @get:Input abstract val library: Property<String>
+    @get:Input abstract val features: Property<String>
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
     @TaskAction
@@ -44,6 +45,7 @@ abstract class CargoNdkBuild : DefaultTask() {
             "--remap-path-prefix=$cargoHome=/cargo",
         )
         val profile = if (release.get()) listOf("--release") else emptyList()
+        val cargoFeatures = features.get().takeIf { it.isNotBlank() }?.let { listOf("--features", it) } ?: emptyList()
         execOperations.exec {
             workingDir(workspaceDir.get())
             environment("ANDROID_NDK_HOME", ndkDir.get())
@@ -51,7 +53,7 @@ abstract class CargoNdkBuild : DefaultTask() {
             commandLine(
                 listOf(cargo.get(), "ndk") + targets +
                     listOf("--platform", apiLevel.get().toString(), "-o", out, "build") + profile +
-                    listOf("--locked", "-p", library.get(), "--lib"),
+                    listOf("--locked", "-p", library.get(), "--lib") + cargoFeatures,
             )
         }
         // cargo-ndk copies every shared library cargo left behind; only the app's ships.
@@ -73,9 +75,8 @@ android {
         ndk { abiFilters.addAll(rustAbis) }
     }
 
-    // The release key, when the build is given one (the release workflow passes it from the
-    // repository's secrets). Without one a release build is signed with the debug key: it installs,
-    // but a later release signed with the real key can't update it.
+    // The release key, when the build is given one (a release workflow passes it from the
+    // repository's secrets). Without one a release build is signed with the debug key.
     val releaseKeystore: String? = providers.environmentVariable("DEXNOTAS_KEYSTORE").orNull?.takeIf { it.isNotBlank() }
     signingConfigs {
         if (releaseKeystore != null) {
@@ -95,8 +96,6 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // -Pdexnotas.unsigned=true (F-Droid's build): not signed at all, so the store signs it,
-            // or checks it against the published APK.
             signingConfig = if (providers.gradleProperty("dexnotas.unsigned").orNull == "true") {
                 null
             } else {
@@ -109,16 +108,9 @@ android {
         includeInApk = false
         includeInBundle = false
     }
-    // BuildConfig: the diagnostics screen of debug builds shows the version.
-    buildFeatures { buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    sourceSets {
-        // The Java side of GPUI's Android platform (the activity, the IME, the clipboard, the
-        // pickers), next to the Rust that calls it.
-        getByName("main") { java.srcDir(File(cargoWorkspaceDir, "upstream/vendor/gpui-mobile/android/java")) }
     }
 }
 
@@ -133,9 +125,10 @@ androidComponents {
             ndkDir.set(androidComponents.sdkComponents.ndkDirectory.map { it.asFile.absolutePath })
             abis.set(rustAbis)
             apiLevel.set(minApi)
-            // a debug APK still gets an optimised library: the editor is slow at opt-level 1
+            // a debug APK still gets an optimised library (highlighting large files needs it)
             release.set(providers.gradleProperty("dexnotas.rustDebug").orNull != "true")
             library.set(libName)
+            features.set(providers.gradleProperty("dexnotas.features").getOrElse(""))
             // cargo knows what changed
             outputs.upToDateWhen { false }
         }
@@ -145,4 +138,10 @@ androidComponents {
 
 tasks.configureEach {
     if (name.contains("ArtProfile")) enabled = false
+}
+
+dependencies {
+    // craft-android's activity (GameActivity, mouse and keyboard, lifecycle, clipboard,
+    // diagnostics); it brings GameActivity's Java side and AppCompat (with androidx.core).
+    implementation(project(":craft-activity"))
 }

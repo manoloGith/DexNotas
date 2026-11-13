@@ -19,6 +19,7 @@ jobs:
       - name: Rust (rust-toolchain.toml) and cargo-ndk
         run: |
           rustup show active-toolchain || rustup toolchain install
+          rustup component add clippy
           cargo install cargo-ndk --version 4.1.2 --locked
 
       - uses: actions/setup-java@v4
@@ -34,11 +35,14 @@ jobs:
         with:
           key: android
 
-      - name: Host check (the desktop binary)
+      - name: Tests and the desktop binary
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libxcb1-dev libfontconfig1-dev libasound2-dev libvulkan-dev
-          cargo check --locked -p dexnotas
+          for i in 1 2 3; do
+            sudo apt-get update -q && sudo apt-get install -y -q -o Acquire::Retries=3 libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev && break
+            sleep 20
+          done
+          cargo test --locked -p dexnotas --features desktop
+          cargo clippy --locked -p dexnotas --features desktop --all-targets -- -D warnings
 
       - name: APK (arm64-v8a and x86_64)
         working-directory: apps/dexnotas/android

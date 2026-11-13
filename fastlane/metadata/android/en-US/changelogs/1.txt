@@ -1,0 +1,1 @@
+First release: tabs with persistent sessions, regex find and replace, highlighting for 25 languages, JSON/XML formatting, UTF-8/UTF-16/ANSI, macros.

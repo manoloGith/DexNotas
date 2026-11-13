@@ -1,0 +1,1 @@
+Primera versión: pestañas con sesión persistente, buscar y reemplazar con regex, resaltado de 25 lenguajes, formato JSON/XML, UTF-8/UTF-16/ANSI, macros.

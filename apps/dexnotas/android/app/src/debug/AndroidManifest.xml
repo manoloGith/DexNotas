@@ -1,20 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: a second launcher icon that opens the diagnostics report (craft-android's
+     Diag.kt), for testers without adb. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
-        <!-- Debug builds only: a second launcher entry that shows the app's log and crash report,
-             to copy or share them from the device without adb. It runs in its own process, so it
-             works when the native side crashes or hangs. -->
-        <activity
-            android:name="io.github.dexnotas.DiagActivity"
+        <activity-alias
+            android:name="io.github.dexnotas.Diagnostics"
             android:exported="true"
-            android:label="@string/diag_name"
-            android:process=":diag"
-            android:taskAffinity="io.github.dexnotas.diag"
-            android:theme="@android:style/Theme.Material.NoActionBar">
+            android:label="@string/app_diagnostics_label"
+            android:icon="@mipmap/ic_launcher"
+            android:targetActivity="io.github.dexnotas.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
     </application>
 </manifest>

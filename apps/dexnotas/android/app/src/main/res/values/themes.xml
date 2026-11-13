@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- GPUI draws everything: no action bar, and the editor's dark background while the first
-         frame is on its way. -->
-    <style name="Theme.DexNotas" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/window_background</item>
+    <!-- GameActivity is an AppCompatActivity: it needs an AppCompat theme. egui draws everything,
+         so no action bar and no window background flash. -->
+    <style name="Theme.DexNotas" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">#FF1E1F22</item>
     </style>
-    <color name="window_background">#FF1E1F22</color>
 </resources>

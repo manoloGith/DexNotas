@@ -1,4 +1,3 @@
-# The activity is named in the manifest and the rest of dev.gpui.mobile is called from Rust
-# through JNI, by name.
--keep class dev.gpui.mobile.** { *; }
+# The activity is found by name from the manifest. craft-activity's consumer rules keep its own
+# classes (called by JNI) and GameActivity's Java side.
 -keep class io.github.dexnotas.** { *; }
