@@ -38,6 +38,7 @@ fn android_main(app: AndroidApp) {
     // picks it up; its `run` blocks on the activity's event loop and starts the app once the
     // window has a surface.
     jni::init_platform(&app);
+    crate::dialogs::install();
     log::info!("platform ready, starting Notepad Studio");
     notepad_studio::main();
     log::info!("Notepad Studio returned");

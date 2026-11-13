@@ -32,3 +32,8 @@ gpui_mobile = { package = "gpui-pre-mobile", path = "../../upstream/vendor/gpui-
 android-activity = { version = "0.6", features = ["native-activity"] }
 # dup2: stdout and stderr into the log file.
 libc = "0.2"
+# Message boxes (src/dialogs.rs): the fork's rfd shim, whose backend the app installs, and the
+# JNI calls to show them (the jni version gpui-mobile uses).
+rfd = { package = "rfd-android-shim", path = "../../upstream/android/rfd-shim" }
+jni = "0.22"
+futures-channel = "0.3"

@@ -1368,10 +1368,13 @@ name = "dexnotas"
 version = "0.1.0"
 dependencies = [
  "android-activity",
+ "futures-channel",
  "gpui-pre-mobile",
+ "jni 0.22.4",
  "libc",
  "log",
  "notepad-studio",
+ "rfd-android-shim",
 ]
 
 [[package]]
