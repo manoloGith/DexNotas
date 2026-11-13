@@ -22,7 +22,9 @@ reapertura fiables y un informe de diagnóstico que se copia sin adb.
 - **Vista previa de Markdown y HTML**: en doble panel (lado a lado, o arriba y abajo en una
   pantalla estrecha) con el divisor arrastrable, o sola (Ctrl+Mayús+V o la barra de estado). Sigue
   al editor al desplazarse, muestra tablas, listas de tareas, código con colores e imágenes
-  locales, y los enlaces abren la web o el archivo `.md` enlazado. El HTML se ve sin CSS ni scripts.
+  locales, y los enlaces abren la web o el archivo `.md` enlazado. En Android se dibuja con el
+  WebView del sistema (el motor de Chrome): el HTML se ve completo, con su CSS y su JavaScript;
+  Ver ▸ Vista previa ▸ «Motor web» lo cambia por la vista propia de la app, que es la del escritorio.
 - **Codificaciones**: UTF-8 (con o sin BOM), UTF-16 LE/BE (con o sin BOM), ANSI (Windows-1252) y
   otras páginas de códigos; reabrir con otra, convertir, fin de línea CRLF/LF/CR.
 - **Macros**: grabar (Ctrl+Mayús+R), reproducir una vez, N veces o hasta el final, guardarlas con

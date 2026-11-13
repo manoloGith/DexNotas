@@ -251,6 +251,12 @@ fn menu_bar(app: &mut App, ui: &mut Ui) {
                         }
                     }
                     ui.separator();
+                    if crate::platform::web::available() {
+                        let mut on = app.settings.preview_web;
+                        if ui.checkbox(&mut on, t("preview_web")).clicked() {
+                            a.push(Action::ToggleWebPreview);
+                        }
+                    }
                     if item(ui, t("preview_halves"), "") {
                         app.settings.preview_split = 0.5;
                     }
@@ -593,8 +599,12 @@ fn editor(app: &mut App, ui: &mut Ui) {
 fn preview(app: &mut App, ui: &mut Ui, follow: bool) {
     let (dark, size) = (app.settings.dark, app.settings.font_size);
     let ctx = ui.ctx().clone();
+    let web = app.settings.preview_web && crate::platform::web::available();
     let Some(doc) = app.docs.get_mut(app.active) else { return };
-    app.previewer.update(doc, &ctx);
+    app.previewer.update(doc, &ctx, web);
+    if web {
+        app.web_want = Some((ui.max_rect(), follow));
+    }
     let out = super::preview::show(ui, doc, dark, size, follow);
     if !follow {
         app.editor_focused = false;

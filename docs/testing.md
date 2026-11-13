@@ -100,6 +100,27 @@ para copiarlo.
 - [ ] Un .html: títulos, párrafos, listas, tablas, `<pre>`, imágenes; sin CSS ni scripts.
 - [ ] La vista previa de cada pestaña vuelve como estaba al reabrir la app.
 
+Motor web (Android, WebView; Ver ▸ Vista previa ▸ «Motor web (CSS y JavaScript)», activado de
+serie):
+
+- [ ] Un .html con `<style>` y `<script>`: se ve con sus colores y su JavaScript funciona.
+- [ ] Un .md: estilo tipo GitHub, negrita, tablas, casillas, código con los colores del editor.
+- [ ] El WebView ocupa exactamente su panel: ni tapa el divisor, ni la barra de estado, ni las
+      pestañas; al arrastrar el divisor o cambiar el tamaño de la ventana de DeX se recoloca.
+- [ ] Abrir un menú que cae sobre la vista previa, un diálogo (Ctrl+G) o el menú de una pestaña:
+      la página se oculta mientras tanto (se ve la vista propia) y vuelve al cerrarlo.
+- [ ] Escribir en el editor: el Markdown se actualiza sin parpadeo ni salto; un HTML se recarga
+      tras una pausa y conserva el desplazamiento.
+- [ ] Desplazar el editor: la página le sigue.
+- [ ] Rueda del ratón, clic y selección de texto dentro de la página; con la página enfocada,
+      flechas/AvPág/Inicio/Fin la desplazan y Ctrl+C copia; un clic en el editor devuelve el
+      teclado al editor; Ctrl+S, Ctrl+Mayús+V, etc. siguen funcionando.
+- [ ] Un enlace web abre el navegador; uno a otro .md abre una pestaña; uno a `#seccion` baja a
+      ese título.
+- [ ] Imágenes locales y de internet en un .md y en un .html.
+- [ ] Cambiar a tema claro/oscuro o el zoom (Ctrl++): la página se rehace con ese tema y tamaño.
+- [ ] Desactivar «Motor web»: vuelve la vista propia; activarlo otra vez: vuelve la página.
+
 ## 9. Macros
 
 - [ ] Ctrl+Mayús+R, escribir y moverse (por ejemplo: Inicio, «- », Abajo), Ctrl+Mayús+R otra vez;

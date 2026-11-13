@@ -34,8 +34,12 @@ Android solo se ha comprobado que compila y se empaqueta**; la lista de qué pro
   pintarlas. Sin selección por columnas.
 
 - **Vista previa** (`preview/`, `ui/preview.rs`): Markdown con pulldown-cmark y HTML con un
-  lector propio tolerante, a bloques que se dibujan con egui (solo los visibles). Sin motor web:
-  el HTML se ve sin CSS ni JavaScript, y las imágenes de la web no se descargan.
+  lector propio tolerante, a bloques que se dibujan con egui (solo los visibles); es la vista del
+  escritorio y la de reserva. En Android, la vista previa es el WebView del sistema
+  (`WebPreview.kt`, `ui/webview.rs`, `preview/web.rs`) colocado sobre el panel cada vez que
+  cambia de sitio: el Markdown se convierte a HTML con estilo tipo GitHub y marcas de línea para
+  seguir al editor, y el HTML se carga tal cual (CSS y JavaScript). Como el WebView queda por
+  encima de todo lo que dibuja egui, se oculta mientras un menú o diálogo pasa por encima.
 
 ## Pendiente o posible
 

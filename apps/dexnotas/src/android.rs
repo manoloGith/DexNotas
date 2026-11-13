@@ -89,3 +89,55 @@ pub extern "system" fn Java_io_github_dexnotas_MainActivity_nativeRegisterNotes<
 pub fn share_text(title: &str, text: &str) -> bool {
     call("share_text", json!({ "title": title, "text": text })).get("error").is_none()
 }
+
+/// The preview's WebView (`WebPreview.kt`): where it is, in the window's pixels.
+pub fn preview_place(visible: bool, rect: [i32; 4]) {
+    call("preview_place", json!({ "visible": visible, "x": rect[0], "y": rect[1], "w": rect[2], "h": rect[3] }));
+}
+
+/// Show a whole page (`base`: the folder its relative links and images are in).
+pub fn preview_load(html: &str, base: &str, background: &str, keep_scroll: bool) {
+    call("preview_load", json!({ "html": html, "base": base, "bg": background, "keep": keep_scroll }));
+}
+
+/// New content for the Markdown page already shown.
+pub fn preview_update(html: &str) {
+    call("preview_update", json!({ "html": html }));
+}
+
+/// Follow the editor: a source line, or a fraction of the page.
+pub fn preview_scroll(line: Option<usize>, fraction: f32) {
+    match line {
+        Some(line) => call("preview_scroll", json!({ "line": line })),
+        None => call("preview_scroll", json!({ "fraction": fraction })),
+    };
+}
+
+pub fn preview_clear() {
+    call("preview_clear", json!({}));
+}
+
+/// Files the preview's links asked to open, not yet taken.
+static PREVIEW_LINKS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+pub fn preview_links() -> Vec<String> {
+    std::mem::take(&mut *PREVIEW_LINKS.lock().unwrap_or_else(PoisonError::into_inner))
+}
+
+/// `MainActivity.nativePreviewLink(path)`: a link in the preview to a file.
+#[allow(unsafe_code)] // `no_mangle`: the JVM finds native methods by their exported name
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_dexnotas_MainActivity_nativePreviewLink<'caller>(
+    mut unowned: EnvUnowned<'caller>,
+    _this: JObject<'caller>,
+    path: JString<'caller>,
+) {
+    unowned
+        .with_env(|env| -> jni::errors::Result<()> {
+            let path = path.try_to_string(env)?;
+            PREVIEW_LINKS.lock().unwrap_or_else(PoisonError::into_inner).push(path);
+            platform::events::wake();
+            Ok(())
+        })
+        .resolve::<jni::errors::ThrowRuntimeExAndDefault>()
+}

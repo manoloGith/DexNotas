@@ -24,6 +24,8 @@ pub struct Settings {
     pub autosave_files: bool,
     /// The editor's share of the window when the preview is beside it (or below it).
     pub preview_split: f32,
+    /// The preview is a web page (Android's WebView: CSS and JavaScript) where there is one.
+    pub preview_web: bool,
 }
 
 impl Default for Settings {
@@ -40,6 +42,7 @@ impl Default for Settings {
             auto_indent: true,
             autosave_files: false,
             preview_split: 0.5,
+            preview_web: true,
         }
     }
 }

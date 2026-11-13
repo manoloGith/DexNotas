@@ -33,7 +33,7 @@ pub fn parse(text: &str) -> Parsed {
         blocks.push(Block::Paragraph(pending));
         starts.push(lines.line_at(text.len()));
     }
-    Parsed { blocks, lines: starts, links: r.links, base: None }
+    Parsed { blocks, lines: starts, links: r.links, base: None, web: None }
 }
 
 struct Reader<'a, I: Iterator<Item = (Event<'a>, Range<usize>)>> {

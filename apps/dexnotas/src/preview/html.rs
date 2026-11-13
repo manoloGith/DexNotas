@@ -415,7 +415,7 @@ pub fn parse(src: &str) -> Parsed {
     let mut lines = LineCounter::new(src);
     let mut starts: Vec<usize> = c.starts.iter().map(|at| lines.line_at(*at)).collect();
     starts.resize(blocks.len(), starts.last().copied().unwrap_or(0));
-    Parsed { blocks, lines: starts, links: c.links, base: None }
+    Parsed { blocks, lines: starts, links: c.links, base: None, web: None }
 }
 
 /// Parse the blocks of a Markdown file's HTML block.

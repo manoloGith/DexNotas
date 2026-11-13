@@ -6,6 +6,7 @@
 
 pub mod html;
 pub mod markdown;
+pub mod web;
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -101,14 +102,19 @@ pub struct Parsed {
     pub links: Vec<String>,
     /// The folder relative images are read from.
     pub base: Option<PathBuf>,
+    /// The Markdown as HTML, for the web preview (when asked for).
+    pub web: Option<String>,
 }
 
 impl Parsed {
-    pub fn parse(source: Source, text: &str, base: Option<&Path>) -> Parsed {
+    pub fn parse(source: Source, text: &str, base: Option<&Path>, web: bool) -> Parsed {
         let mut parsed = match source {
             Source::Markdown => markdown::parse(text),
             Source::Html => html::parse(text),
         };
+        if web && source == Source::Markdown {
+            parsed.web = Some(web::markdown_body(text));
+        }
         parsed.base = base.map(Path::to_path_buf);
         for block in &mut parsed.blocks {
             colour_code(block);
@@ -243,6 +249,7 @@ struct Job {
     source: Source,
     text: Arc<String>,
     base: Option<PathBuf>,
+    web: bool,
 }
 
 /// Parses previews on a thread of its own.
@@ -265,7 +272,7 @@ impl Worker {
                 while let Ok(next) = job_rx.try_recv() {
                     job = next;
                 }
-                let parsed = Parsed::parse(job.source, &job.text, job.base.as_deref());
+                let parsed = Parsed::parse(job.source, &job.text, job.base.as_deref(), job.web);
                 if result_tx.send((job.doc, job.version, Arc::new(parsed))).is_err() {
                     break;
                 }
@@ -296,11 +303,12 @@ impl Worker {
     }
 
     /// Ask for the preview of `doc` if its text changed (after a pause for long texts).
-    pub fn update(&self, doc: &mut crate::document::Document, ctx: &egui::Context) {
+    pub fn update(&self, doc: &mut crate::document::Document, ctx: &egui::Context, web: bool) {
         let Some(source) = Source::of(doc.language) else { return };
         let version = doc.buffer.version();
         let state = &doc.preview;
-        if state.parsed.is_some() && state.version == version || state.pending == Some(version) {
+        let have_web = state.parsed.as_ref().is_some_and(|p| p.web.is_some() || source != Source::Markdown);
+        if state.parsed.is_some() && state.version == version && (have_web || !web) || state.pending == Some(version) {
             return;
         }
         let now = Instant::now();
@@ -312,7 +320,7 @@ impl Worker {
         doc.preview.changed_at = None;
         doc.preview.pending = Some(version);
         let base = doc.path.as_ref().and_then(|p| p.parent()).map(Path::to_path_buf);
-        let job = Job { doc: doc.id, version, source, text: doc.text(), base };
+        let job = Job { doc: doc.id, version, source, text: doc.text(), base, web };
         if self.jobs.send(job).is_err() {
             doc.preview.pending = None;
         }

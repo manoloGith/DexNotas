@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- wgpu draws with Vulkan or OpenGL ES 3; glow (the fallback) needs OpenGL ES 3 too. -->
+    <!-- The preview's WebView: images, fonts and scripts a Markdown or HTML document links to. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
     <!-- A mouse and a keyboard are what DeX is for, but the app also starts without them. -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

@@ -3,6 +3,7 @@
 pub mod code_editor;
 mod menus;
 pub mod preview;
+mod webview;
 pub mod theme;
 
 use std::path::{Path, PathBuf};
@@ -68,6 +69,8 @@ pub enum Action {
     TogglePreview,
     /// A link in the preview was clicked.
     FollowLink(String),
+    /// The preview as a web page (CSS and JavaScript) or drawn by the app.
+    ToggleWebPreview,
 }
 
 /// A window over the editor.
@@ -140,6 +143,9 @@ pub struct App {
     actions: Vec<Action>,
     highlighter: crate::highlight::Worker,
     previewer: crate::preview::Worker,
+    /// The preview as a web page (Android), and where it goes this frame.
+    web: webview::Web,
+    web_want: Option<(egui::Rect, bool)>,
     /// Editor requests for the next frame.
     select: Option<(usize, usize)>,
     focus_editor: bool,
@@ -202,6 +208,8 @@ impl App {
             actions: Vec::new(),
             highlighter: crate::highlight::Worker::new(cc.egui_ctx.clone()),
             previewer: crate::preview::Worker::new(cc.egui_ctx.clone()),
+            web: webview::Web::default(),
+            web_want: None,
             select: None,
             focus_editor: true,
             editor_focused: false,
@@ -737,6 +745,12 @@ impl App {
                 self.set_preview(if mode == crate::preview::Mode::Off { crate::preview::Mode::Split } else { crate::preview::Mode::Off });
             }
             Action::FollowLink(link) => self.follow_link(&link),
+            Action::ToggleWebPreview => {
+                self.settings.preview_web = !self.settings.preview_web;
+                if !self.settings.preview_web {
+                    self.web.clear();
+                }
+            }
         }
     }
 
@@ -1077,7 +1091,7 @@ impl eframe::App for App {
         self.apply_settings(ctx);
         self.highlighter.receive(&mut self.docs);
         self.previewer.receive(&mut self.docs);
-        for path in platform::opened() {
+        for path in platform::opened().into_iter().chain(platform::web::links()) {
             self.open_path(&path);
         }
         while let Ok(picked) = self.picker_rx.try_recv() {
@@ -1115,6 +1129,9 @@ impl eframe::App for App {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         menus::window(self, ui);
+        let want = self.web_want.take();
+        let (dark, size) = (self.settings.dark, self.settings.font_size);
+        self.web.sync(ui.ctx(), want, self.docs.get_mut(self.active), dark, size);
         let actions = std::mem::take(&mut self.actions);
         for a in actions {
             self.handle(a);

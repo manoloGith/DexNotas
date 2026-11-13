@@ -125,3 +125,72 @@ fn block_on<F: std::future::Future>(future: F) -> F::Output {
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
 }
+
+/// The preview can be a web page in the system's WebView (Android). On a desktop there is none
+/// (`DEXNOTAS_WEB_LOG=1` pretends there is and logs what it would be told, to test the logic).
+pub mod web {
+    #[cfg(not(target_os = "android"))]
+    fn log_calls() -> bool {
+        std::env::var_os("DEXNOTAS_WEB_LOG").is_some()
+    }
+
+    pub fn available() -> bool {
+        #[cfg(target_os = "android")]
+        return true;
+        #[cfg(not(target_os = "android"))]
+        log_calls()
+    }
+
+    pub fn place(visible: bool, rect: [i32; 4]) {
+        #[cfg(target_os = "android")]
+        crate::android::preview_place(visible, rect);
+        #[cfg(not(target_os = "android"))]
+        if log_calls() {
+            eprintln!("web: place visible={visible} {rect:?}");
+        }
+    }
+
+    pub fn load(html: &str, base: &str, background: &str, keep_scroll: bool) {
+        #[cfg(target_os = "android")]
+        crate::android::preview_load(html, base, background, keep_scroll);
+        #[cfg(not(target_os = "android"))]
+        if log_calls() {
+            eprintln!("web: load {} bytes base={base} bg={background} keep={keep_scroll}", html.len());
+        }
+    }
+
+    pub fn update(html: &str) {
+        #[cfg(target_os = "android")]
+        crate::android::preview_update(html);
+        #[cfg(not(target_os = "android"))]
+        if log_calls() {
+            eprintln!("web: update {} bytes", html.len());
+        }
+    }
+
+    pub fn scroll(line: Option<usize>, fraction: f32) {
+        #[cfg(target_os = "android")]
+        crate::android::preview_scroll(line, fraction);
+        #[cfg(not(target_os = "android"))]
+        if log_calls() {
+            eprintln!("web: scroll line={line:?} fraction={fraction}");
+        }
+    }
+
+    pub fn clear() {
+        #[cfg(target_os = "android")]
+        crate::android::preview_clear();
+        #[cfg(not(target_os = "android"))]
+        if log_calls() {
+            eprintln!("web: clear");
+        }
+    }
+
+    /// Files the page's links asked to open.
+    pub fn links() -> Vec<std::path::PathBuf> {
+        #[cfg(target_os = "android")]
+        return crate::android::preview_links().into_iter().map(std::path::PathBuf::from).collect();
+        #[cfg(not(target_os = "android"))]
+        Vec::new()
+    }
+}

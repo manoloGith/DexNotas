@@ -142,3 +142,4 @@ preview_only	Preview	Vista previa
 preview_halves	Panels at half	Paneles a la mitad
 preview_hint	The preview is for Markdown and HTML	La vista previa es para Markdown y HTML
 link_not_found	Not found: {}	No se encuentra: {}
+preview_web	Web engine (CSS and JavaScript)	Motor web (CSS y JavaScript)
