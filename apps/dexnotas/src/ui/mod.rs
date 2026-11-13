@@ -956,6 +956,21 @@ impl App {
 
     fn closing(&mut self, ctx: &egui::Context) {
         if ctx.input(|i| i.viewport().close_requested()) {
+            // Android's Back (craft-android makes it a close request) first closes what is open
+            // over the editor: a dialog, a menu, the search results, the find bar.
+            if cfg!(target_os = "android") && (self.dialog.is_some() || self.tab_menu.is_some() || self.hits_open || self.find.open) {
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                if self.dialog.take().is_none() && self.tab_menu.take().is_none() {
+                    if self.hits_open {
+                        self.hits_open = false;
+                    } else {
+                        self.find.open = false;
+                        self.find.current = None;
+                    }
+                }
+                self.focus_editor = true;
+                return;
+            }
             // Closing the window never asks: the tabs and their unsaved text come back next time.
             self.recording = None;
             self.persist();

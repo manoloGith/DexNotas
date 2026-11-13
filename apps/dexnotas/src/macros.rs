@@ -65,6 +65,12 @@ pub fn record_events(steps: &mut Vec<Step>, events: &[egui::Event]) {
                 Step::Text(t.clone())
             }
             egui::Event::Key { key, pressed: true, modifiers, .. } => {
+                // A key that types is recorded as its text (the Text event that follows); only
+                // shortcuts and editing keys are recorded as keys.
+                let shortcut = modifiers.ctrl || modifiers.command || modifiers.mac_cmd || modifiers.alt;
+                if !shortcut && !is_editing_key(*key) {
+                    continue;
+                }
                 Step::Key {
                     key: key.name().to_owned(),
                     ctrl: modifiers.ctrl || modifiers.command || modifiers.mac_cmd,
@@ -79,6 +85,16 @@ pub fn record_events(steps: &mut Vec<Step>, events: &[egui::Event]) {
         };
         steps.push(step);
     }
+}
+
+/// Keys that edit or move without typing a character.
+fn is_editing_key(key: egui::Key) -> bool {
+    use egui::Key::*;
+    matches!(
+        key,
+        ArrowDown | ArrowLeft | ArrowRight | ArrowUp | Escape | Tab | Backspace | Enter | Insert | Delete | Home | End
+            | PageUp | PageDown | F1 | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | F10 | F11 | F12
+    )
 }
 
 /// The egui events that replay an input step (`None` for a command).
@@ -122,6 +138,7 @@ mod tests {
         record_events(
             &mut steps,
             &[
+                egui::Event::Key { key: egui::Key::A, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::NONE },
                 egui::Event::Text("a".into()),
                 egui::Event::Text("b".into()),
                 egui::Event::Key { key: egui::Key::Home, physical_key: None, pressed: true, repeat: false, modifiers: ctrl },
