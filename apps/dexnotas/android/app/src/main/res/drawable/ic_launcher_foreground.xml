@@ -8,8 +8,8 @@
     <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3.5" android:strokeLineCap="round" android:fillColor="#00000000"
         android:pathData="M46,78h16M54,69v9" />
     <path android:fillColor="#FFFFFFFF" android:pathData="M44,27h14l8,8v26h-22z" />
-    <path android:fillColor="#FFC8E6C9" android:pathData="M58,27v8h8z" />
-    <path android:fillColor="#FF1B5E20" android:pathData="M49.5,42h11a1.5,1.5 0 0 1 0,3h-11a1.5,1.5 0 0 1 0,-3z" />
-    <path android:fillColor="#FFA5D6A7" android:pathData="M49.2,48h11.6a1.2,1.2 0 0 1 0,2.5h-11.6a1.2,1.2 0 0 1 0,-2.5z" />
-    <path android:fillColor="#FFA5D6A7" android:pathData="M49.2,53h7.6a1.2,1.2 0 0 1 0,2.5h-7.6a1.2,1.2 0 0 1 0,-2.5z" />
+    <path android:fillColor="#FFB3E5FC" android:pathData="M58,27v8h8z" />
+    <path android:fillColor="#FF0277BD" android:pathData="M49.5,42h11a1.5,1.5 0 0 1 0,3h-11a1.5,1.5 0 0 1 0,-3z" />
+    <path android:fillColor="#FF81D4FA" android:pathData="M49.2,48h11.6a1.2,1.2 0 0 1 0,2.5h-11.6a1.2,1.2 0 0 1 0,-2.5z" />
+    <path android:fillColor="#FF81D4FA" android:pathData="M49.2,53h7.6a1.2,1.2 0 0 1 0,2.5h-7.6a1.2,1.2 0 0 1 0,-2.5z" />
 </vector>

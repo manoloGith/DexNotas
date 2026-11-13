@@ -4,7 +4,8 @@ name: Release
 # the version in gradle.properties), to build the release APK and publish it as a GitHub release.
 # With the repository secrets DEXNOTAS_KEYSTORE_BASE64, DEXNOTAS_KEYSTORE_PASSWORD and
 # DEXNOTAS_KEY_ALIAS the APK is signed with the release key; without them it is signed with a debug
-# key and published as a pre-release.
+# key and published as a pre-release. A tag with a suffix (v0.1.0-beta.1) is always a pre-release:
+# the APK's version is the part before the suffix, and its notes are that version's.
 on:
   push:
     tags: ["v*"]
@@ -27,9 +28,12 @@ jobs:
           listed="$(sed -n 's/^dexnotas.version=//p' apps/dexnotas/android/gradle.properties)"
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then tag="${GITHUB_REF_NAME}"; else tag="v${listed}"; fi
           version="${tag#v}"
-          [ "${version}" = "${listed}" ] || { echo "gradle.properties' dexnotas.version is ${listed}, not ${version}"; exit 1; }
+          base="${version%%-*}"
+          [ "${base}" = "${listed}" ] || { echo "gradle.properties' dexnotas.version is ${listed}, not ${base}"; exit 1; }
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "notes=docs/release-notes/v${base}.md" >> "$GITHUB_OUTPUT"
+          if [ "${version}" != "${base}" ]; then echo "pre=true" >> "$GITHUB_OUTPUT"; else echo "pre=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Rust (rust-toolchain.toml) and cargo-ndk
         run: |
@@ -98,8 +102,8 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
           name: DexNotas ${{ steps.version.outputs.version }}
-          prerelease: ${{ steps.key.outputs.signed != 'true' }}
-          body_path: docs/release-notes/${{ steps.version.outputs.tag }}.md
+          prerelease: ${{ steps.key.outputs.signed != 'true' || steps.version.outputs.pre == 'true' }}
+          body_path: ${{ steps.version.outputs.notes }}
           files: |
             ${{ runner.temp }}/out/*.apk
             ${{ runner.temp }}/out/SHA256SUMS.txt

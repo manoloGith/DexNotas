@@ -24,6 +24,15 @@ pub fn install_fonts(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
     fonts.font_data.insert("inter".into(), Arc::new(FontData::from_static(include_bytes!("../../assets/fonts/Inter-Regular.otf"))));
     fonts.font_data.insert("inter-bold".into(), Arc::new(FontData::from_static(include_bytes!("../../assets/fonts/Inter-Bold.otf"))));
+    // The interface's font lacks arrows and shapes (→ ▸ ▲ ●) that the monospace one has: it
+    // stands in for them everywhere.
+    let mono = fonts.families.get(&FontFamily::Monospace).and_then(|m| m.first().cloned());
+    if let Some(mono) = mono
+        && let Some(prop) = fonts.families.get_mut(&FontFamily::Proportional)
+        && !prop.contains(&mono)
+    {
+        prop.push(mono);
+    }
     let fallback = fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default();
     for (family, font) in [(PROSE, "inter"), (PROSE_BOLD, "inter-bold")] {
         let mut list = vec![font.to_owned()];
