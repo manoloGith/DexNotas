@@ -14,8 +14,9 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
-/// Above this size a document is shown without colours (highlighting runs on every change).
-pub const MAX_HIGHLIGHT_BYTES: usize = 2 * 1024 * 1024;
+/// A guard against a request far larger than the highlighting thread is ever given
+/// (`highlight::WHOLE_LIMIT`, or a window around the screen).
+pub const MAX_HIGHLIGHT_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

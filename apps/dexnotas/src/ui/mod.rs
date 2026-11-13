@@ -1,6 +1,6 @@
 //! The window: menus, tabs, the find bar, the editor and the status bar, and everything they do.
 
-mod editor;
+pub mod code_editor;
 mod menus;
 pub mod theme;
 
@@ -131,7 +131,7 @@ pub struct App {
     hits: Vec<Hit>,
     hits_open: bool,
     actions: Vec<Action>,
-    cache: editor::HighlightCache,
+    highlighter: crate::highlight::Worker,
     /// Editor requests for the next frame.
     select: Option<(usize, usize)>,
     focus_editor: bool,
@@ -147,8 +147,8 @@ pub struct App {
     events_in_flight: bool,
     checked_disk: Instant,
     dirty_since: Option<Instant>,
-    /// The editor's selection last frame (a move is saved with the session).
-    last_cursor: Option<(usize, usize)>,
+    /// The find bar's count, and what it was counted for.
+    match_count: Option<((u64, u64, Query), Option<usize>)>,
     /// The tab whose menu is open (right click), and where.
     tab_menu: Option<(u64, egui::Pos2)>,
     ctx: egui::Context,
@@ -192,7 +192,7 @@ impl App {
             hits: Vec::new(),
             hits_open: false,
             actions: Vec::new(),
-            cache: editor::HighlightCache::default(),
+            highlighter: crate::highlight::Worker::new(cc.egui_ctx.clone()),
             select: None,
             focus_editor: true,
             editor_focused: false,
@@ -203,7 +203,7 @@ impl App {
             events_in_flight: false,
             checked_disk: Instant::now(),
             dirty_since: None,
-            last_cursor: None,
+            match_count: None,
             tab_menu: None,
             ctx: cc.egui_ctx.clone(),
         };
@@ -226,7 +226,7 @@ impl App {
     /// The window title (DeX's taskbar).
     pub fn title(&self) -> String {
         match self.docs.get(self.active) {
-            Some(d) => format!("{}{} - DexNotas", if d.dirty { "*" } else { "" }, d.title()),
+            Some(d) => format!("{}{} - DexNotas", if d.dirty() { "*" } else { "" }, d.title()),
             None => "DexNotas".to_owned(),
         }
     }
@@ -249,9 +249,24 @@ impl App {
         self.unsaved_since.get_or_insert_with(Instant::now);
     }
 
-    /// The cursor moved: remembered with the session, without hurrying.
-    fn touched_cursor(&mut self) {
-        self.touched();
+    /// The number of matches in the find bar, worked out again when the query or the text
+    /// changed (and only for documents up to 64 MB: above that, Find next still works).
+    fn update_match_count(&mut self) {
+        if !self.find.open || self.find.query.pattern.is_empty() {
+            return;
+        }
+        let Ok(re) = self.find.query.compile() else { return };
+        let Some(d) = self.docs.get_mut(self.active) else { return };
+        let key = (d.id, d.buffer.version(), self.find.query.clone());
+        if self.match_count.as_ref().is_some_and(|(k, _)| *k == key) {
+            return;
+        }
+        let n = if d.buffer.len_bytes() <= 64 * 1024 * 1024 { Some(find::find_all(&d.text(), &re).len()) } else { None };
+        self.find.note = match n {
+            Some(n) => tf("matches", n),
+            None => String::new(),
+        };
+        self.match_count = Some((key, n));
     }
 
     fn activate(&mut self, index: usize) {
@@ -324,8 +339,8 @@ impl App {
     }
 
     fn save_to(&mut self, index: usize, path: &Path, close_after: bool) {
-        let Some(doc) = self.docs.get(index) else { return };
-        if !crate::text::fits(&doc.text, doc.format.encoding) {
+        let Some(doc) = self.docs.get_mut(index) else { return };
+        if !doc.format.encoding.is_unicode() && !crate::text::fits(&doc.text(), doc.format.encoding) {
             let label = doc.format.encoding.label();
             self.set_status(tf("unmappable", label), true);
         }
@@ -362,7 +377,7 @@ impl App {
 
     fn close_tab(&mut self, id: u64) {
         let Some(i) = self.index_of(id) else { return };
-        if self.docs[i].dirty && !self.docs[i].text.is_empty() || self.docs[i].dirty && self.docs[i].path.is_some() {
+        if self.docs[i].dirty() && !self.docs[i].is_blank() {
             self.activate(i);
             self.dialog = Some(Dialog::ConfirmClose { doc: id });
         } else {
@@ -378,7 +393,9 @@ impl App {
 
     fn select_bytes(&mut self, range: std::ops::Range<usize>) {
         if let Some(d) = self.doc() {
-            self.select = Some((byte_to_char(&d.text, range.start), byte_to_char(&d.text, range.end)));
+            let rope = d.buffer.rope();
+            let (a, b) = (range.start.min(rope.len_bytes()), range.end.min(rope.len_bytes()));
+            self.select = Some((rope.byte_to_char(a), rope.byte_to_char(b)));
         }
     }
 
@@ -411,7 +428,7 @@ impl App {
         {
             self.dirty_since = None;
             for i in 0..self.docs.len() {
-                if self.docs[i].dirty && self.docs[i].path.is_some() {
+                if self.docs[i].dirty() && self.docs[i].path.is_some() {
                     self.save_doc(i, false);
                 }
             }
@@ -423,7 +440,7 @@ impl App {
                 if !self.docs[i].changed_on_disk() || self.docs[i].missing_on_disk() {
                     continue;
                 }
-                if self.docs[i].dirty {
+                if self.docs[i].dirty() {
                     if self.dialog.is_none() {
                         self.dialog = Some(Dialog::ChangedOnDisk { doc: self.docs[i].id });
                     }
@@ -505,7 +522,7 @@ impl App {
             }
             Action::SaveAll => {
                 for i in 0..self.docs.len() {
-                    if self.docs[i].dirty && self.docs[i].path.is_some() {
+                    if self.docs[i].dirty() && self.docs[i].path.is_some() {
                         self.save_doc(i, false);
                     }
                 }
@@ -524,23 +541,23 @@ impl App {
                 let ids: Vec<u64> = self.docs.iter().map(|d| d.id).filter(|id| Some(*id) != keep).collect();
                 for id in ids {
                     if let Some(i) = self.index_of(id)
-                        && !self.docs[i].dirty
+                        && !self.docs[i].dirty()
                     {
                         self.remove_tab(i);
                     }
                 }
-                if self.docs.iter().any(|d| d.dirty && Some(d.id) != keep) {
+                if self.docs.iter().any(|d| d.dirty() && Some(d.id) != keep) {
                     self.set_status(t("kept_unsaved"), false);
                 }
             }
             Action::CloseAll => {
-                let ids: Vec<u64> = self.docs.iter().filter(|d| !d.dirty).map(|d| d.id).collect();
+                let ids: Vec<u64> = self.docs.iter().filter(|d| !d.dirty()).map(|d| d.id).collect();
                 for id in ids {
                     if let Some(i) = self.index_of(id) {
                         self.remove_tab(i);
                     }
                 }
-                if self.docs.iter().any(|d| d.dirty) {
+                if self.docs.iter().any(|d| d.dirty()) {
                     self.set_status(t("kept_unsaved"), false);
                 }
             }
@@ -558,7 +575,7 @@ impl App {
             }
             Action::Share => {
                 if let Some(d) = self.doc() {
-                    let (title, text) = (d.title(), d.text.clone());
+                    let (title, text) = (d.title(), d.buffer.rope().to_string());
                     if !platform::share_text(&title, &text) {
                         self.ctx.copy_text(text);
                         self.set_status(t("copied_instead"), false);
@@ -571,10 +588,15 @@ impl App {
             }
             Action::Undo | Action::Redo => {
                 let redo = action == Action::Redo;
+                if let Some(d) = self.doc_mut() {
+                    let done = if redo { d.redo() } else { d.undo() };
+                    if done {
+                        let sel = d.cursor;
+                        self.select = Some(sel);
+                        self.edited();
+                    }
+                }
                 self.focus_editor = true;
-                let modifiers = if redo { CTRL_SHIFT } else { CTRL };
-                self.pending_events.push(egui::Event::Key { key: Key::Z, physical_key: None, pressed: true, repeat: false, modifiers });
-                self.pending_events.push(egui::Event::Key { key: Key::Z, physical_key: None, pressed: false, repeat: false, modifiers });
             }
             Action::Edit(command) => {
                 if let Some(rec) = self.recording.as_mut() {
@@ -589,10 +611,11 @@ impl App {
                 // The selection (one line) is what to look for.
                 if let Some(d) = self.doc() {
                     let (a, b) = self.selection();
-                    let (a, b) = (char_to_byte(&d.text, a), char_to_byte(&d.text, b));
-                    let selected = &d.text[a..b];
-                    if !selected.is_empty() && !selected.contains('\n') {
-                        self.find.query.pattern = if self.find.query.regex { regex::escape(selected) } else { selected.to_owned() };
+                    if b > a && b - a < 1000 {
+                        let selected = d.buffer.slice_string(a..b);
+                        if !selected.contains('\n') {
+                            self.find.query.pattern = if self.find.query.regex { regex::escape(&selected) } else { selected };
+                        }
                     }
                 }
             }
@@ -602,7 +625,7 @@ impl App {
             }
             Action::GoToLineDialog => self.dialog = Some(Dialog::GoToLine(String::new())),
             Action::ReopenAs(encoding) => {
-                let dirty = self.doc().is_some_and(|d| d.dirty);
+                let dirty = self.doc().is_some_and(|d| d.dirty());
                 if dirty {
                     self.set_status(t("save_first"), true);
                 } else if let Some(d) = self.doc_mut() {
@@ -624,8 +647,8 @@ impl App {
                     if !encoding.is_unicode() {
                         d.format.bom = false;
                     }
-                    let fits = crate::text::fits(&d.text, encoding);
-                    d.set_saved_hash(d.saved_hash().wrapping_add(1));
+                    let fits = encoding.is_unicode() || crate::text::fits(&d.text(), encoding);
+                    d.mark_changed();
                     self.touched();
                     if !fits {
                         self.set_status(tf("unmappable", encoding.label()), true);
@@ -637,7 +660,7 @@ impl App {
                     && d.format.encoding.is_unicode()
                 {
                     d.format.bom = !d.format.bom;
-                    d.set_saved_hash(d.saved_hash().wrapping_add(1));
+                    d.mark_changed();
                     self.touched();
                 }
             }
@@ -646,7 +669,7 @@ impl App {
                     && d.format.line_ending != e
                 {
                     d.format.line_ending = e;
-                    d.set_saved_hash(d.saved_hash().wrapping_add(1));
+                    d.mark_changed();
                     self.touched();
                 }
             }
@@ -700,15 +723,15 @@ impl App {
     }
 
     fn check(&mut self, f: fn(&str) -> Result<(), crate::format::Problem>, what: &str) {
-        let Some(d) = self.doc() else { return };
-        let text = d.text.clone();
+        let Some(d) = self.doc_mut() else { return };
+        let text = d.text();
         match f(&text) {
             Ok(()) => self.set_status(tf("valid", what), false),
             Err(p) => {
                 if let Some(line) = p.line {
                     let r = find::line_range(&text, line);
                     let col = p.column.unwrap_or(1).saturating_sub(1);
-                    let at = byte_to_char(&text, r.start) + col;
+                    let at = byte_to_char(&text, r.start) + col.min(text[r].chars().count());
                     self.select = Some((at, at));
                     self.focus_editor = true;
                 }
@@ -718,85 +741,96 @@ impl App {
     }
 
     /// Run an editing command on the active document (from a menu, a shortcut or a macro).
+    /// Run an editing command on the active document (from a menu, a shortcut or a macro).
     fn run_command(&mut self, command: &Command) {
+        use crate::edit_ops;
         let (a, b) = self.selection();
         let indent = self.settings.indent_unit();
         let width = self.settings.indent_width;
-        let Some(doc) = self.docs.get_mut(self.active) else { return };
-        let text = &doc.text;
-        let sel = a..b;
-        let line_comment = doc.language.and_then(LanguageId::line_comment).unwrap_or("#");
-        // The part to format: the selection, or the whole document.
-        let (fa, fb) = if a == b { (0, text.len()) } else { (char_to_byte(text, a), char_to_byte(text, b)) };
-        let formatted = |f: &dyn Fn(&str) -> Result<String, crate::format::Problem>| -> Result<(String, std::ops::Range<usize>), String> {
-            let out = f(&text[fa..fb]).map_err(|p| p.to_string())?;
-            let mut new = String::with_capacity(text.len());
-            new.push_str(&text[..fa]);
-            new.push_str(&out);
-            new.push_str(&text[fb..]);
-            let start = byte_to_char(&new, fa);
-            let end = byte_to_char(&new, fa + out.len());
-            Ok((new, if a == b { start..start } else { start..end }))
-        };
-        let result: Result<Option<(String, std::ops::Range<usize>)>, String> = match command {
-            Command::Upper => Ok(Some(crate::edit_ops::change_case(text, sel, true))),
-            Command::Lower => Ok(Some(crate::edit_ops::change_case(text, sel, false))),
-            Command::ToggleComment => Ok(Some(crate::edit_ops::toggle_comment(text, sel, line_comment))),
-            Command::DuplicateLines => Ok(Some(crate::edit_ops::duplicate_lines(text, sel))),
-            Command::DeleteLines => Ok(Some(crate::edit_ops::delete_lines(text, sel))),
-            Command::SortAscending => Ok(Some(crate::edit_ops::sort_lines(text, sel, false))),
-            Command::SortDescending => Ok(Some(crate::edit_ops::sort_lines(text, sel, true))),
-            Command::TrimTrailing => {
-                let new = crate::edit_ops::trim_trailing(text);
-                let at = a.min(new.chars().count());
-                Ok(Some((new, at..at)))
-            }
-            Command::Indent => Ok(Some(crate::edit_ops::indent_lines(text, sel, &indent, false))),
-            Command::Outdent => Ok(Some(crate::edit_ops::indent_lines(text, sel, &indent, true))),
+        match command {
             Command::SelectAll => {
-                self.select = Some((0, text.chars().count()));
+                let len = self.doc().map_or(0, Document::len_chars);
+                self.select = Some((0, len));
                 self.focus_editor = true;
-                Ok(None)
+                return;
             }
-            Command::JsonPretty => formatted(&|s| crate::format::json_pretty(s, width)).map(Some),
-            Command::JsonMinify => formatted(&crate::format::json_minify).map(Some),
-            Command::XmlPretty => formatted(&|s| crate::format::xml_reformat(s, width)).map(Some),
-            Command::XmlMinify => formatted(&|s| crate::format::xml_reformat(s, 0)).map(Some),
             Command::GoToLine(line) => {
-                let r = find::line_range(text, *line);
-                let at = byte_to_char(text, r.start);
-                self.select = Some((at, at));
-                self.focus_editor = true;
-                Ok(None)
-            }
-            Command::FindNext { query, backwards } => {
-                self.find_next(query, *backwards);
-                Ok(None)
-            }
-            Command::ReplaceNext { query, replacement } => {
-                self.replace_next(query, replacement);
-                Ok(None)
-            }
-            Command::ReplaceAll { query, replacement } => {
-                self.replace_all(query, replacement);
-                Ok(None)
-            }
-        };
-        match result {
-            Ok(Some((new, sel))) => {
-                if let Some(doc) = self.docs.get_mut(self.active) {
-                    doc.set_text(new);
-                    self.select = Some((sel.start, sel.end));
+                if let Some(d) = self.doc() {
+                    let rope = d.buffer.rope();
+                    let at = rope.line_to_char(line.saturating_sub(1).min(rope.len_lines().saturating_sub(1)));
+                    self.select = Some((at, at));
                     self.focus_editor = true;
-                    self.cache_changed();
                 }
+                return;
             }
-            Ok(None) => {}
+            Command::FindNext { query, backwards } => return self.find_next(query, *backwards),
+            Command::ReplaceNext { query, replacement } => return self.replace_next(query, replacement),
+            Command::ReplaceAll { query, replacement } => return self.replace_all(query, replacement),
+            _ => {}
+        }
+        let Some(doc) = self.docs.get_mut(self.active) else { return };
+        let line_comment = doc.language.and_then(LanguageId::line_comment).unwrap_or("#");
+        let rope = doc.buffer.rope();
+        let len = rope.len_chars();
+        // The part a command works on: the whole lines of the selection, the selection, or the
+        // whole document; the command sees only that text.
+        let lines_region = {
+            let first = rope.char_to_line(a.min(len));
+            let end_at = if b > a && b <= len && rope.char(b - 1) == '\n' { b - 1 } else { b.min(len) };
+            let last = rope.char_to_line(end_at);
+            let start = rope.line_to_char(first);
+            let end = if last + 1 < rope.len_lines() { rope.line_to_char(last + 1) } else { len };
+            start..end
+        };
+        let selection_or_all = if a == b { 0..len } else { a..b };
+        let whole = 0..len;
+        let multi_line = rope.slice(a.min(len)..b.min(len)).chars().any(|c| c == '\n');
+        type Op<'a> = Box<dyn Fn(&str, std::ops::Range<usize>) -> Result<(String, std::ops::Range<usize>), String> + 'a>;
+        let (region, op): (std::ops::Range<usize>, Op<'_>) = match command {
+            Command::Upper => (selection_or_all.clone(), Box::new(|t: &str, _| Ok(edit_ops::change_case(t, 0..t.chars().count(), true)))),
+            Command::Lower => (selection_or_all.clone(), Box::new(|t: &str, _| Ok(edit_ops::change_case(t, 0..t.chars().count(), false)))),
+            Command::ToggleComment => (lines_region.clone(), Box::new(move |t: &str, s| Ok(edit_ops::toggle_comment(t, s, line_comment)))),
+            Command::DuplicateLines => (lines_region.clone(), Box::new(|t: &str, s| Ok(edit_ops::duplicate_lines(t, s)))),
+            Command::DeleteLines => (lines_region.clone(), Box::new(|t: &str, s| Ok(edit_ops::delete_lines(t, s)))),
+            Command::SortAscending | Command::SortDescending => {
+                let desc = *command == Command::SortDescending;
+                let region = if multi_line { lines_region.clone() } else { whole.clone() };
+                (region, Box::new(move |t: &str, _| Ok(edit_ops::sort_lines(t, 0..0, desc))))
+            }
+            Command::TrimTrailing => (whole.clone(), Box::new(|t: &str, s| Ok((edit_ops::trim_trailing(t), s.start..s.start)))),
+            Command::Indent => (lines_region.clone(), Box::new(|t: &str, _| Ok(edit_ops::indent_lines(t, 0..t.chars().count(), &indent, false)))),
+            Command::Outdent => (lines_region.clone(), Box::new(|t: &str, _| Ok(edit_ops::indent_lines(t, 0..t.chars().count(), &indent, true)))),
+            Command::JsonPretty => (selection_or_all.clone(), Box::new(|t: &str, _| crate::format::json_pretty(t, width).map(|s| { let n = s.chars().count(); (s, 0..n) }).map_err(|p| format!("JSON: {p}")))),
+            Command::JsonMinify => (selection_or_all.clone(), Box::new(|t: &str, _| crate::format::json_minify(t).map(|s| { let n = s.chars().count(); (s, 0..n) }).map_err(|p| format!("JSON: {p}")))),
+            Command::XmlPretty => (selection_or_all.clone(), Box::new(|t: &str, _| crate::format::xml_reformat(t, width).map(|s| { let n = s.chars().count(); (s, 0..n) }).map_err(|p| format!("XML: {p}")))),
+            Command::XmlMinify => (selection_or_all.clone(), Box::new(|t: &str, _| crate::format::xml_reformat(t, 0).map(|s| { let n = s.chars().count(); (s, 0..n) }).map_err(|p| format!("XML: {p}")))),
+            _ => return,
+        };
+        let text = doc.buffer.slice_string(region.clone());
+        let rel = a.saturating_sub(region.start).min(region.end - region.start)..b.saturating_sub(region.start).min(region.end - region.start);
+        match op(&text, rel) {
+            Ok((new, sel)) => {
+                if new != text {
+                    // A whole-document format keeps the cursor where it was; otherwise the
+                    // result is selected.
+                    let after = if a == b && region == whole && matches!(command, Command::JsonPretty | Command::JsonMinify | Command::XmlPretty | Command::XmlMinify | Command::TrimTrailing | Command::Upper | Command::Lower) {
+                        let at = a.min(region.start + new.chars().count());
+                        (at, at)
+                    } else {
+                        (region.start + sel.start, region.start + sel.end)
+                    };
+                    doc.replace(region, &new, after, crate::buffer::Group::Alone);
+                    self.select = Some(after);
+                    self.edited();
+                }
+                self.focus_editor = true;
+            }
             Err(e) => self.set_status(e, true),
         }
     }
 
-    fn cache_changed(&mut self) {
+    /// The active document's text changed.
+    fn edited(&mut self) {
         self.touched();
         self.dirty_since.get_or_insert_with(Instant::now);
     }
@@ -815,10 +849,11 @@ impl App {
 
     fn find_next(&mut self, query: &Query, backwards: bool) {
         let Some(re) = self.compile(query) else { return };
-        let Some(d) = self.doc() else { return };
         let (a, b) = self.selection();
-        let from = if backwards { char_to_byte(&d.text, a) } else { char_to_byte(&d.text, b) };
-        match find::find_next(&d.text, &re, from, backwards) {
+        let Some(d) = self.doc_mut() else { return };
+        let text = d.text();
+        let from = if backwards { char_to_byte(&text, a) } else { char_to_byte(&text, b) };
+        match find::find_next(&text, &re, from, backwards) {
             Some(r) => {
                 self.find.current = Some(r.clone());
                 self.select_bytes(r);
@@ -834,22 +869,23 @@ impl App {
         let Some(re) = self.compile(query) else { return };
         let (a, b) = self.selection();
         let Some(d) = self.doc_mut() else { return };
-        let (ba, bb) = (char_to_byte(&d.text, a), char_to_byte(&d.text, b));
+        let text = d.text();
+        let (ba, bb) = (char_to_byte(&text, a), char_to_byte(&text, b));
         // The selection is a match: replace it, then find the next one.
-        if ba < bb && re.find_at(&d.text, ba).is_some_and(|m| m.range() == (ba..bb)) {
-            let with = find::replacement_for(&d.text, &re, ba..bb, replacement, query.regex);
-            let mut new = d.text.clone();
-            new.replace_range(ba..bb, &with);
-            d.set_text(new);
-            let end = byte_to_char(&d.text, ba + with.len());
-            self.select = Some((end, end));
-            self.cache_changed();
-            if let Some(d) = self.doc() {
-                let from = ba + with.len();
-                if let Some(r) = find::find_next(&d.text, &re, from, false) {
+        if ba < bb && re.find_at(&text, ba).is_some_and(|m| m.range() == (ba..bb)) {
+            let with = find::replacement_for(&text, &re, ba..bb, replacement, query.regex);
+            let end = a + with.chars().count();
+            d.replace(a..b, &with, (end, end), crate::buffer::Group::Alone);
+            let text = d.text();
+            let from = char_to_byte(&text, end);
+            let next = find::find_next(&text, &re, from, false);
+            self.edited();
+            match next {
+                Some(r) => {
                     self.find.current = Some(r.clone());
                     self.select_bytes(r);
                 }
+                None => self.select = Some((end, end)),
             }
         } else {
             self.find_next(query, false);
@@ -858,11 +894,14 @@ impl App {
 
     fn replace_all(&mut self, query: &Query, replacement: &str) {
         let Some(re) = self.compile(query) else { return };
+        let (a, _) = self.selection();
         let Some(d) = self.doc_mut() else { return };
-        let (new, n) = find::replace_all(&d.text, &re, replacement, query.regex);
+        let text = d.text();
+        let (new, n) = find::replace_all(&text, &re, replacement, query.regex);
         if n > 0 {
-            d.set_text(new);
-            self.cache_changed();
+            let at = a.min(new.chars().count());
+            d.set_text(&new, (at, at));
+            self.edited();
         }
         self.find.current = None;
         self.set_status(tf("replaced", n), false);
@@ -872,12 +911,13 @@ impl App {
         self.hits.clear();
         self.hits_open = true;
         let Some(re) = self.compile(&self.find.query.clone()) else { return };
-        for d in &self.docs {
-            for r in find::find_all(&d.text, &re).into_iter().take(2000) {
-                let (line, _) = find::line_col(&d.text, r.start);
-                let lr = find::line_range(&d.text, line);
-                let text: String = d.text[lr].chars().take(200).collect();
-                self.hits.push(Hit { doc: d.id, title: d.title(), line, text, range: r });
+        for d in &mut self.docs {
+            let text = d.text();
+            let rope = d.buffer.rope();
+            for r in find::find_all(&text, &re).into_iter().take(2000) {
+                let line = rope.byte_to_line(r.start);
+                let line_text: String = rope.line(line).chars().take(200).collect();
+                self.hits.push(Hit { doc: d.id, title: d.title(), line: line + 1, text: line_text.trim_end().to_owned(), range: r });
             }
         }
         let n = self.hits.len();
@@ -911,7 +951,7 @@ impl App {
         if p.index >= p.steps.len() {
             p.runs += 1;
             let cursor = self.selection().1;
-            let len = self.doc().map_or(0, |d| d.text.chars().count());
+            let len = self.doc().map_or(0, Document::len_chars);
             let more = match p.repeat {
                 Repeat::Times(n) => p.runs < n,
                 Repeat::ToEnd => cursor < len && cursor != p.run_start && p.runs < macros::MAX_RUNS,
@@ -981,6 +1021,7 @@ impl App {
 impl eframe::App for App {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.apply_settings(ctx);
+        self.highlighter.receive(&mut self.docs);
         for path in platform::opened() {
             self.open_path(&path);
         }
@@ -1037,57 +1078,11 @@ impl eframe::App for App {
         self.persist();
     }
 
-    fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
+        // A macro's input goes to the editor (which also does the indent and Tab).
         if !self.pending_events.is_empty() {
             raw.events.append(&mut self.pending_events);
             self.events_in_flight = true;
-            return;
         }
-        // Enter keeps the line's indent; Tab inserts spaces, or indents the selected lines.
-        let Some(doc) = self.docs.get(self.active) else { return };
-        let focused = self.docs.get(self.active).is_some_and(|d| ctx.memory(|m| m.has_focus(editor::editor_id(d.id))));
-        if !focused {
-            return;
-        }
-        let (a, b) = doc.cursor;
-        let (lo, hi) = (a.min(b), a.max(b));
-        let multi_line = {
-            let (x, y) = (char_to_byte(&doc.text, lo), char_to_byte(&doc.text, hi));
-            doc.text[x..y].contains('\n')
-        };
-        let mut out = Vec::with_capacity(raw.events.len());
-        for event in raw.events.drain(..) {
-            match &event {
-                egui::Event::Key { key: Key::Enter, pressed: true, modifiers, .. }
-                    if self.settings.auto_indent && modifiers.is_none() =>
-                {
-                    // The editor's own Enter makes the new line; the indent is typed after it.
-                    let indent = crate::edit_ops::leading_whitespace(&doc.text, lo);
-                    out.push(event);
-                    if !indent.is_empty() {
-                        out.push(egui::Event::Text(indent));
-                    }
-                }
-                egui::Event::Key { key: Key::Tab, pressed: true, modifiers, .. }
-                    if (modifiers.is_none() || modifiers.shift_only()) =>
-                {
-                    if multi_line || modifiers.shift {
-                        self.actions.push(Action::Edit(if modifiers.shift { Command::Outdent } else { Command::Indent }));
-                    } else if self.settings.indent_spaces {
-                        let col = {
-                            let at = char_to_byte(&doc.text, lo);
-                            let start = doc.text[..at].rfind('\n').map_or(0, |i| i + 1);
-                            doc.text[start..at].chars().count()
-                        };
-                        let w = self.settings.indent_width.max(1);
-                        out.push(egui::Event::Text(" ".repeat(w - col % w)));
-                    } else {
-                        out.push(event);
-                    }
-                }
-                _ => out.push(event),
-            }
-        }
-        raw.events = out;
     }
 }

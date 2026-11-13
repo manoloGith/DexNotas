@@ -207,6 +207,20 @@ pub fn encode(text: &str, format: Format) -> Vec<u8> {
     out
 }
 
+/// [`encode`] for a rope, a piece at a time (no copy of the whole text first).
+pub fn encode_rope(rope: &ropey::Rope, format: Format) -> Vec<u8> {
+    let mut out = Vec::with_capacity(rope.len_bytes() + 3);
+    let first = Format { bom: format.bom, ..format };
+    let rest = Format { bom: false, ..format };
+    for (i, chunk) in rope.chunks().enumerate() {
+        out.extend_from_slice(&encode(chunk, if i == 0 { first } else { rest }));
+    }
+    if rope.len_bytes() == 0 {
+        out = encode("", first);
+    }
+    out
+}
+
 /// Whether every character of `text` can be stored in `encoding`.
 pub fn fits(text: &str, encoding: Encoding) -> bool {
     if encoding.is_unicode() {
@@ -407,6 +421,15 @@ mod tests {
         assert_eq!(normalize_newlines("a\r\nb\rc\n"), "a\nb\nc\n");
         assert_eq!(encode("a\nb", format(Encoding::Utf8, false, LineEnding::CrLf)), b"a\r\nb");
         assert_eq!(encode("a\nb", format(Encoding::Utf8, false, LineEnding::Cr)), b"a\rb");
+    }
+
+    #[test]
+    fn rope_encoding_matches() {
+        let text = "línea ñ\n".repeat(3000);
+        let rope = ropey::Rope::from_str(&text);
+        for f in [format(Encoding::Utf8, true, LineEnding::CrLf), format(Encoding::Utf16Be, true, LineEnding::Lf), format(Encoding::Windows1252, false, LineEnding::Cr)] {
+            assert_eq!(encode_rope(&rope, f), encode(&text, f));
+        }
     }
 
     #[test]

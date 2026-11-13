@@ -3,9 +3,8 @@
 
 use egui::{Button, Color32, Key, RichText, Ui};
 
-use super::editor::{self, Look, Requests};
+use super::code_editor::{self, Look, Requests};
 use super::{Action, App, Dialog, theme};
-use crate::find::{self, char_to_byte};
 use crate::i18n::{Language, t, tf};
 use crate::macros::{Command, Macro, Repeat};
 use crate::syntax::LanguageId;
@@ -31,7 +30,7 @@ pub fn window(app: &mut App, ui: &mut Ui) {
         .docs
         .iter()
         .enumerate()
-        .map(|(i, d)| craft_android::tabs::Tab::new(d.id, d.title(), d.dirty, i == app.active))
+        .map(|(i, d)| craft_android::tabs::Tab::new(d.id, d.title(), d.dirty(), i == app.active))
         .collect();
     let strip = craft_android::tabs::TabStrip::new(&tabs).new_tooltip(t("new_tab")).close_tooltip(t("close_tab")).show_panel(ui);
     match strip.action {
@@ -65,41 +64,42 @@ pub fn window(app: &mut App, ui: &mut Ui) {
             .show(ui, |ui| find_bar(app, ui));
     }
     egui::CentralPanel::no_frame().show(ui, |ui| {
+        let active = app.active;
+        let line_comment = app.docs.get(active).and_then(|d| d.language).and_then(LanguageId::line_comment);
         let look = Look {
             font: egui::FontId::monospace(app.settings.font_size),
             dark: app.settings.dark,
             wrap: app.settings.word_wrap,
             line_numbers: app.settings.line_numbers,
             highlight_line: app.settings.highlight_line,
+            indent_unit: app.settings.indent_unit(),
+            indent_width: app.settings.indent_width,
+            auto_indent: app.settings.auto_indent,
+            line_comment,
         };
-        let marks = if app.find.open && !app.find.query.pattern.is_empty() {
-            match (app.find.query.compile(), app.docs.get(app.active)) {
-                (Ok(re), Some(d)) if d.text.len() < 8 * 1024 * 1024 => find::find_all(&d.text, &re),
-                _ => Vec::new(),
-            }
-        } else {
-            Vec::new()
-        };
-        if app.find.open && !app.find.query.pattern.is_empty() && app.find.query.compile().is_ok() {
-            app.find.note = tf("matches", marks.len());
-        }
+        let marks = if app.find.open && !app.find.query.pattern.is_empty() { app.find.query.compile().ok() } else { None };
+        app.update_match_count();
         let requests = Requests {
             focus: std::mem::take(&mut app.focus_editor) && app.dialog.is_none() && !app.find.focus,
             select: app.select.take(),
             current_mark: app.find.current.clone(),
             marks,
         };
-        let active = app.active;
         if let Some(doc) = app.docs.get_mut(active) {
-            let out = editor::show(ui, doc, &mut app.cache, &look, requests);
+            let before = doc.cursor;
+            let out = code_editor::show(ui, doc, &look, requests);
             app.editor_focused = out.focused;
+            let moved = doc.cursor != before;
+            app.highlighter.update(doc, out.visible_bytes);
             if out.changed {
                 app.find.current = None;
-                app.cache_changed();
-            } else if out.cursor.is_some() && out.cursor != app.last_cursor {
-                app.touched_cursor();
+                app.edited();
+            } else if moved {
+                app.touched();
             }
-            app.last_cursor = out.cursor;
+            if let Some(indent) = out.indent {
+                app.actions.push(Action::Edit(if indent { Command::Indent } else { Command::Outdent }));
+            }
         }
     });
     dialogs(app, ui.ctx());
@@ -521,9 +521,12 @@ fn status_bar(app: &mut App, ui: &mut Ui) {
             ui.label(d.language.map_or(t("plain_text"), LanguageId::label));
             ui.separator();
             let (a, b) = d.cursor;
-            let at = char_to_byte(&d.text, b);
-            let (line, col) = find::line_col(&d.text, at);
-            let lines = d.text.matches('\n').count() + 1;
+            let rope = d.buffer.rope();
+            let b = b.min(rope.len_chars());
+            let line = rope.char_to_line(b);
+            let col = b - rope.line_to_char(line) + 1;
+            let line = line + 1;
+            let lines = rope.len_lines();
             if a != b {
                 ui.label(tf("selected", a.abs_diff(b)));
                 ui.separator();
@@ -565,7 +568,7 @@ fn dialogs(app: &mut App, ctx: &egui::Context) {
             }
             Dialog::GoToLine(text) => {
                 let mut text = text.clone();
-                let lines = app.docs.get(app.active).map_or(1, |d| d.text.matches('\n').count() + 1);
+                let lines = app.docs.get(app.active).map_or(1, |d| d.buffer.rope().len_lines());
                 ui.heading(t("go_to_line"));
                 ui.label(tf("line_range", lines));
                 let field = ui.text_edit_singleline(&mut text);

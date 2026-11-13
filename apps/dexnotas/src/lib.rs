@@ -10,10 +10,12 @@
 //! with OpenGL ES through glow when wgpu can't start. `src/main.rs` runs the same window on a
 //! desktop, to iterate without a device.
 
+pub mod buffer;
 pub mod document;
 pub mod edit_ops;
 pub mod find;
 pub mod format;
+pub mod highlight;
 pub mod i18n;
 pub mod macros;
 pub mod platform;

@@ -27,8 +27,11 @@ Android solo se ha comprobado que compila y se empaqueta**; la lista de qué pro
   guardar en ANSI, lo que no cabe se escribe como `?` (avisa antes).
 - **YAML y TOML solo se validan**: formatearlos con las bibliotecas disponibles pierde los
   comentarios.
-- **El editor es el `TextEdit` de egui**: sin selección por columnas, y por encima de 2 MB se
-  muestra sin colores (los archivos de más de 64 MB no se abren).
+- **El editor es propio** (`ui/code_editor.rs`) sobre una cuerda (`ropey`, `buffer.rs`): solo se
+  maquetan las líneas visibles, así que no hay límite de tamaño al abrir ni para los colores.
+  Hasta 4 MB se colorea el documento entero; por encima, una ventana de ±256 KB alrededor de lo
+  que se ve, en un hilo aparte. Las líneas muy largas (JSON en una línea) se parten en trozos al
+  pintarlas. Sin selección por columnas.
 
 ## Pendiente o posible
 

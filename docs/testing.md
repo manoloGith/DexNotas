@@ -69,6 +69,11 @@ para copiarlo.
 - [ ] Un archivo sin extensión con `#!/bin/bash` se colorea como Shell.
 - [ ] Lenguaje ▸ elegir otro a mano; Texto plano lo quita.
 - [ ] Un archivo grande (1–2 MB) se mueve con fluidez al escribir y desplazar.
+- [ ] Un archivo enorme (50–100 MB): se abre, tiene colores también al final (Ctrl+End),
+      escribir y deshacer van fluidos.
+- [ ] Un JSON de varios MB en una sola línea: Fin lleva al final con colores; con Ajuste de
+      línea se ve partido; Formatear JSON funciona.
+- [ ] Toque/clic simple y doble clic seleccionan bien (en el móvil, un toque mueve el cursor).
 
 ## 8. Formatear y validar
 

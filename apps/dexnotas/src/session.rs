@@ -79,16 +79,15 @@ impl Session {
             let doc = if entry.stored {
                 match std::fs::read_to_string(self.content_path(entry.id)) {
                     Ok(text) => {
-                        let mut d = Document::new(entry.id, entry.untitled.unwrap_or(1));
-                        d.untitled = entry.untitled;
+                        let mut d = Document::from_text(entry.id, entry.untitled, &text);
+                        drop(text);
                         d.path = entry.path.clone();
-                        d.text = text;
                         d.format = entry.format;
                         d.language = entry.language;
                         d.language_chosen = entry.language_chosen;
                         d.set_saved_hash(entry.saved_hash);
                         d.disk_time = d.path.as_ref().and_then(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok());
-                        self.written.push((d.id, d.version));
+                        self.written.push((d.id, d.buffer.version()));
                         Some(d)
                     }
                     Err(e) => {
@@ -114,7 +113,7 @@ impl Session {
                 None
             };
             if let Some(mut d) = doc {
-                let len = d.text.chars().count();
+                let len = d.len_chars();
                 d.cursor = (entry.cursor.0.min(len), entry.cursor.1.min(len));
                 docs.push(d);
             }
@@ -131,12 +130,13 @@ impl Session {
         let mut tabs = Vec::with_capacity(docs.len());
         let mut keep = HashSet::new();
         for d in docs {
-            let stored = d.dirty || d.path.is_none();
+            let stored = d.dirty() || d.path.is_none();
             if stored {
                 keep.insert(d.id);
-                let current = (d.id, d.version);
+                let current = (d.id, d.buffer.version());
                 if !self.written.contains(&current) {
-                    document::write_atomic(&self.content_path(d.id), d.text.as_bytes())?;
+                    let rope = d.buffer.rope();
+                    document::write_atomic_with(&self.content_path(d.id), |f| rope.write_to(f))?;
                     self.written.retain(|(id, _)| *id != d.id);
                     self.written.push(current);
                 }
@@ -197,14 +197,11 @@ mod tests {
         let file = dir.path().join("saved.md");
         std::fs::write(&file, "# saved\n").unwrap();
 
-        let mut new_doc = Document::new(7, 1);
-        new_doc.text = "draft, never saved".into();
-        new_doc.changed();
+        let new_doc = Document::from_text(7, Some(1), "draft, never saved");
         let saved = Document::open(8, &file).unwrap();
         let mut edited = Document::open(9, &file).unwrap();
-        edited.text.push_str("more\n");
-        edited.changed();
-        edited.cursor = (3, 5);
+        let end = edited.len_chars();
+        edited.replace(end..end, "more\n", (3, 5), crate::buffer::Group::Typing);
 
         let mut session = Session::new(dir.path().join("data"));
         session.save(&[new_doc, saved, edited], 2, 2, std::slice::from_ref(&file)).unwrap();
@@ -215,12 +212,13 @@ mod tests {
         assert_eq!(docs.len(), 3);
         assert_eq!((active, next), (2, 2));
         assert_eq!(recent, vec![file.clone()]);
-        assert_eq!(docs[0].text, "draft, never saved");
+        let mut docs = docs;
+        assert_eq!(docs[0].text().as_str(), "draft, never saved");
         assert_eq!(docs[0].untitled, Some(1));
-        assert!(!docs[1].dirty);
-        assert_eq!(docs[1].text, "# saved\n");
-        assert_eq!(docs[2].text, "# saved\nmore\n");
-        assert!(docs[2].dirty, "still unsaved");
+        assert!(!docs[1].dirty());
+        assert_eq!(docs[1].text().as_str(), "# saved\n");
+        assert_eq!(docs[2].text().as_str(), "# saved\nmore\n");
+        assert!(docs[2].dirty(), "still unsaved");
         assert_eq!(docs[2].path.as_deref(), Some(file.as_path()));
         assert_eq!(docs[2].cursor, (3, 5));
     }
@@ -229,9 +227,7 @@ mod tests {
     fn closed_tabs_leave_nothing_behind() {
         let dir = tempfile::tempdir().unwrap();
         let mut session = Session::new(dir.path().to_path_buf());
-        let mut d = Document::new(1, 1);
-        d.text = "x".into();
-        d.changed();
+        let d = Document::from_text(1, Some(1), "x");
         session.save(std::slice::from_ref(&d), 0, 2, &[]).unwrap();
         assert!(dir.path().join("session/1.txt").exists());
         session.save(&[], 0, 2, &[]).unwrap();
