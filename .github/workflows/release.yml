@@ -5,11 +5,17 @@ name: Release
 # With the repository secrets DEXNOTAS_KEYSTORE_BASE64, DEXNOTAS_KEYSTORE_PASSWORD and
 # DEXNOTAS_KEY_ALIAS the APK is signed with the release key; without them it is signed with a debug
 # key and published as a pre-release. A tag with a suffix (v0.1.0-beta.1) is always a pre-release:
-# the APK's version is the part before the suffix, and its notes are that version's.
+# the APK's version is the part before the suffix, and its notes are that version's. Run by hand,
+# the `suffix` input gives the same.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      suffix:
+        description: "Pre-release suffix (beta.1 publishes v<version>-beta.1 as a pre-release; empty: the version itself)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -26,7 +32,8 @@ jobs:
         id: version
         run: |
           listed="$(sed -n 's/^dexnotas.version=//p' apps/dexnotas/android/gradle.properties)"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then tag="${GITHUB_REF_NAME}"; else tag="v${listed}"; fi
+          suffix="${{ github.event.inputs.suffix }}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then tag="${GITHUB_REF_NAME}"; elif [ -n "${suffix}" ]; then tag="v${listed}-${suffix}"; else tag="v${listed}"; fi
           version="${tag#v}"
           base="${version%%-*}"
           [ "${base}" = "${listed}" ] || { echo "gradle.properties' dexnotas.version is ${listed}, not ${base}"; exit 1; }
