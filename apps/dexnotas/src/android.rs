@@ -72,6 +72,11 @@ impl log::Log for StderrLogger {
     }
 
     fn log(&self, record: &log::Record) {
+        // android-activity reports every wake of the looper that is not its own as an error;
+        // GPUI's platform wakes it for each frame and task, which would bury the log.
+        if record.target().starts_with("android_activity") && record.args().to_string().contains("Spurious ALOOPER_POLL_CALLBACK") {
+            return;
+        }
         if self.enabled(record.metadata()) {
             eprintln!("{:<5} {}: {}", record.level(), record.target(), record.args());
         }
