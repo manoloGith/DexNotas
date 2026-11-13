@@ -7,6 +7,7 @@ use super::code_editor::{self, Look, Requests};
 use super::{Action, App, Dialog, theme};
 use crate::i18n::{Language, t, tf};
 use crate::macros::{Command, Macro, Repeat};
+use crate::preview::{Mode, Source};
 use crate::syntax::LanguageId;
 use crate::text::{Encoding, LineEnding};
 
@@ -64,41 +65,18 @@ pub fn window(app: &mut App, ui: &mut Ui) {
             .show(ui, |ui| find_bar(app, ui));
     }
     egui::CentralPanel::no_frame().show(ui, |ui| {
-        let active = app.active;
-        let line_comment = app.docs.get(active).and_then(|d| d.language).and_then(LanguageId::line_comment);
-        let look = Look {
-            font: egui::FontId::monospace(app.settings.font_size),
-            dark: app.settings.dark,
-            wrap: app.settings.word_wrap,
-            line_numbers: app.settings.line_numbers,
-            highlight_line: app.settings.highlight_line,
-            indent_unit: app.settings.indent_unit(),
-            indent_width: app.settings.indent_width,
-            auto_indent: app.settings.auto_indent,
-            line_comment,
-        };
-        let marks = if app.find.open && !app.find.query.pattern.is_empty() { app.find.query.compile().ok() } else { None };
-        app.update_match_count();
-        let requests = Requests {
-            focus: std::mem::take(&mut app.focus_editor) && app.dialog.is_none() && !app.find.focus,
-            select: app.select.take(),
-            current_mark: app.find.current.clone(),
-            marks,
-        };
-        if let Some(doc) = app.docs.get_mut(active) {
-            let before = doc.cursor;
-            let out = code_editor::show(ui, doc, &look, requests);
-            app.editor_focused = out.focused;
-            let moved = doc.cursor != before;
-            app.highlighter.update(doc, out.visible_bytes);
-            if out.changed {
-                app.find.current = None;
-                app.edited();
-            } else if moved {
-                app.touched();
-            }
-            if let Some(indent) = out.indent {
-                app.actions.push(Action::Edit(if indent { Command::Indent } else { Command::Outdent }));
+        let mode = app.docs.get(app.active).filter(|d| Source::of(d.language).is_some()).map_or(Mode::Off, |d| d.preview.mode);
+        let full = ui.max_rect();
+        match mode {
+            Mode::Off => editor(app, ui),
+            Mode::Only => preview(app, ui, false),
+            Mode::Split => {
+                // Side by side; one above the other when the window is narrow (a phone upright).
+                let vertical = full.width() < 640.0 && full.height() > full.width();
+                let (editor_rect, handle, preview_rect) = split(full, app.settings.preview_split, vertical);
+                ui.scope_builder(egui::UiBuilder::new().max_rect(editor_rect), |ui| editor(app, ui));
+                ui.scope_builder(egui::UiBuilder::new().max_rect(preview_rect), |ui| preview(app, ui, true));
+                splitter(app, ui, full, handle, vertical);
             }
         }
     });
@@ -260,6 +238,27 @@ fn menu_bar(app: &mut App, ui: &mut Ui) {
             check(ui, &mut app.settings.line_numbers, t("line_numbers"));
             check(ui, &mut app.settings.highlight_line, t("highlight_line"));
             check(ui, &mut app.settings.dark, t("dark_theme"));
+            ui.separator();
+            let doc = app.docs.get(app.active);
+            let can = doc.is_some_and(|d| Source::of(d.language).is_some());
+            let current = doc.map_or(Mode::Off, |d| d.preview.mode);
+            ui.add_enabled_ui(can, |ui| {
+                ui.menu_button(t("preview"), |ui| {
+                    for (mode, label, keys) in [(Mode::Off, t("preview_off"), ""), (Mode::Split, t("preview_split"), "Ctrl+Shift+V"), (Mode::Only, t("preview_only"), "")] {
+                        let button = Button::selectable(can && current == mode, label).shortcut_text(keys);
+                        if ui.add(button).clicked() {
+                            a.push(Action::SetPreview(mode));
+                        }
+                    }
+                    ui.separator();
+                    if item(ui, t("preview_halves"), "") {
+                        app.settings.preview_split = 0.5;
+                    }
+                });
+            });
+            if !can {
+                ui.label(RichText::new(t("preview_hint")).weak().small());
+            }
             ui.separator();
             if item(ui, t("zoom_in"), "Ctrl++") {
                 a.push(Action::Zoom(1.0));
@@ -496,6 +495,115 @@ fn hits(app: &mut App, ui: &mut Ui) {
     }
 }
 
+/// The editor and the preview's places, and the handle between them.
+fn split(full: egui::Rect, fraction: f32, vertical: bool) -> (egui::Rect, egui::Rect, egui::Rect) {
+    const HANDLE: f32 = 6.0;
+    let fraction = fraction.clamp(0.1, 0.9);
+    if vertical {
+        let y = (full.top() + full.height() * fraction).round();
+        (
+            egui::Rect::from_min_max(full.min, egui::pos2(full.right(), y - HANDLE / 2.0)),
+            egui::Rect::from_min_max(egui::pos2(full.left(), y - HANDLE / 2.0), egui::pos2(full.right(), y + HANDLE / 2.0)),
+            egui::Rect::from_min_max(egui::pos2(full.left(), y + HANDLE / 2.0), full.max),
+        )
+    } else {
+        let x = (full.left() + full.width() * fraction).round();
+        (
+            egui::Rect::from_min_max(full.min, egui::pos2(x - HANDLE / 2.0, full.bottom())),
+            egui::Rect::from_min_max(egui::pos2(x - HANDLE / 2.0, full.top()), egui::pos2(x + HANDLE / 2.0, full.bottom())),
+            egui::Rect::from_min_max(egui::pos2(x + HANDLE / 2.0, full.top()), full.max),
+        )
+    }
+}
+
+/// The handle between the editor and the preview: drag it to resize, double click for halves.
+fn splitter(app: &mut App, ui: &mut Ui, full: egui::Rect, handle: egui::Rect, vertical: bool) {
+    let pal = theme::palette(app.settings.dark);
+    // A wider grip than the line, easier to catch with a finger.
+    let grip = handle.expand(if vertical { 0.0 } else { 4.0 }).expand2(egui::vec2(0.0, if vertical { 4.0 } else { 0.0 }));
+    let response = ui.interact(grip, egui::Id::unique("dexnotas-preview-splitter"), egui::Sense::click_and_drag());
+    if let Some(p) = response.interact_pointer_pos()
+        && response.dragged()
+    {
+        let fraction = if vertical { (p.y - full.top()) / full.height() } else { (p.x - full.left()) / full.width() };
+        app.settings.preview_split = fraction.clamp(0.1, 0.9);
+    }
+    if response.double_clicked() {
+        app.settings.preview_split = 0.5;
+    }
+    let active = response.hovered() || response.dragged();
+    if active {
+        ui.ctx().set_cursor_icon(if vertical { egui::CursorIcon::ResizeRow } else { egui::CursorIcon::ResizeColumn });
+    }
+    let painter = ui.painter();
+    painter.rect_filled(handle, 0.0, pal.bar);
+    let line = if active { pal.gutter_text } else { pal.separator };
+    if vertical {
+        painter.hline(handle.x_range(), handle.center().y, egui::Stroke::new(1.0, line));
+    } else {
+        painter.vline(handle.center().x, handle.y_range(), egui::Stroke::new(1.0, line));
+    }
+    // Three dots in the middle: something to grab.
+    for k in [-1.0, 0.0, 1.0] {
+        let c = handle.center() + if vertical { egui::vec2(k * 6.0, 0.0) } else { egui::vec2(0.0, k * 6.0) };
+        painter.circle_filled(c, 1.6, if active { pal.gutter_current } else { pal.gutter_text });
+    }
+}
+
+fn editor(app: &mut App, ui: &mut Ui) {
+    let active = app.active;
+    let line_comment = app.docs.get(active).and_then(|d| d.language).and_then(LanguageId::line_comment);
+    let look = Look {
+        font: egui::FontId::monospace(app.settings.font_size),
+        dark: app.settings.dark,
+        wrap: app.settings.word_wrap,
+        line_numbers: app.settings.line_numbers,
+        highlight_line: app.settings.highlight_line,
+        indent_unit: app.settings.indent_unit(),
+        indent_width: app.settings.indent_width,
+        auto_indent: app.settings.auto_indent,
+        line_comment,
+    };
+    let marks = if app.find.open && !app.find.query.pattern.is_empty() { app.find.query.compile().ok() } else { None };
+    app.update_match_count();
+    let requests = Requests {
+        focus: std::mem::take(&mut app.focus_editor) && app.dialog.is_none() && !app.find.focus,
+        select: app.select.take(),
+        current_mark: app.find.current.clone(),
+        marks,
+    };
+    if let Some(doc) = app.docs.get_mut(active) {
+        let before = doc.cursor;
+        let out = code_editor::show(ui, doc, &look, requests);
+        app.editor_focused = out.focused;
+        let moved = doc.cursor != before;
+        app.highlighter.update(doc, out.visible_bytes);
+        if out.changed {
+            app.find.current = None;
+            app.edited();
+        } else if moved {
+            app.touched();
+        }
+        if let Some(indent) = out.indent {
+            app.actions.push(Action::Edit(if indent { Command::Indent } else { Command::Outdent }));
+        }
+    }
+}
+
+fn preview(app: &mut App, ui: &mut Ui, follow: bool) {
+    let (dark, size) = (app.settings.dark, app.settings.font_size);
+    let ctx = ui.ctx().clone();
+    let Some(doc) = app.docs.get_mut(app.active) else { return };
+    app.previewer.update(doc, &ctx);
+    let out = super::preview::show(ui, doc, dark, size, follow);
+    if !follow {
+        app.editor_focused = false;
+    }
+    if let Some(link) = out.link {
+        app.actions.push(Action::FollowLink(link));
+    }
+}
+
 fn status_bar(app: &mut App, ui: &mut Ui) {
     let pal = theme::palette(app.settings.dark);
     ui.horizontal(|ui| {
@@ -512,6 +620,16 @@ fn status_bar(app: &mut App, ui: &mut Ui) {
             ui.ctx().request_repaint_after(std::time::Duration::from_secs(8));
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let Some(d) = app.docs.get(app.active) else { return };
+            if Source::of(d.language).is_some() {
+                let current = d.preview.mode;
+                for (mode, label) in [(Mode::Only, t("preview_only")), (Mode::Split, t("preview_split")), (Mode::Off, t("preview_off"))] {
+                    if ui.selectable_label(current == mode, label).clicked() {
+                        app.actions.push(Action::SetPreview(mode));
+                    }
+                }
+                ui.separator();
+            }
             let Some(d) = app.docs.get(app.active) else { return };
             let f = d.format;
             ui.label(f.line_ending.short());

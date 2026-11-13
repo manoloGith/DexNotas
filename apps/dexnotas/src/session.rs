@@ -39,6 +39,9 @@ pub struct TabEntry {
     pub stored: bool,
     #[serde(default)]
     pub cursor: (usize, usize),
+    /// Where the Markdown/HTML preview was.
+    #[serde(default)]
+    pub preview: crate::preview::Mode,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -115,6 +118,7 @@ impl Session {
             if let Some(mut d) = doc {
                 let len = d.len_chars();
                 d.cursor = (entry.cursor.0.min(len), entry.cursor.1.min(len));
+                d.preview.mode = entry.preview;
                 docs.push(d);
             }
         }
@@ -151,6 +155,7 @@ impl Session {
                 saved_hash: d.saved_hash(),
                 stored,
                 cursor: d.cursor,
+                preview: d.preview.mode,
             });
         }
         let file = SessionFile { tabs, active, next_untitled, recent: recent.to_vec() };

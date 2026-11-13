@@ -19,6 +19,7 @@ pub mod highlight;
 pub mod i18n;
 pub mod macros;
 pub mod platform;
+pub mod preview;
 pub mod session;
 pub mod settings;
 pub mod syntax;

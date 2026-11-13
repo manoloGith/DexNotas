@@ -1,7 +1,7 @@
 # key	English	Spanish (tab-separated; build.rs sorts them)
 about	About DexNotas	Acerca de DexNotas
-about_credits	Highlighting grammars and language setup from Notepad Studio (Apache-2.0). Interface with egui; Android layer craft-android.	Gramáticas de resaltado y configuración de lenguajes de Notepad Studio (Apache-2.0). Interfaz con egui; capa Android craft-android.
-about_text	A text and code editor for Samsung DeX and Android desktop windowing: tabs that come back with their unsaved text, regex find and replace, highlighting for 25 languages, JSON/XML formatting, UTF-8/UTF-16/ANSI and macros.	Un editor de texto y código para Samsung DeX y las ventanas de escritorio de Android: pestañas que vuelven con su texto sin guardar, buscar y reemplazar con regex, resaltado de 25 lenguajes, formato JSON/XML, UTF-8/UTF-16/ANSI y macros.
+about_credits	Highlighting grammars and language setup from Notepad Studio (Apache-2.0). Preview font Inter (OFL). Interface with egui; Android layer craft-android.	Gramáticas de resaltado y configuración de lenguajes de Notepad Studio (Apache-2.0). Letra de la vista previa: Inter (OFL). Interfaz con egui; capa Android craft-android.
+about_text	A text and code editor for Samsung DeX and Android desktop windowing: tabs that come back with their unsaved text, regex find and replace, highlighting for 25 languages, JSON/XML formatting, Markdown and HTML preview, UTF-8/UTF-16/ANSI and macros.	Un editor de texto y código para Samsung DeX y las ventanas de escritorio de Android: pestañas que vuelven con su texto sin guardar, buscar y reemplazar con regex, resaltado de 25 lenguajes, formato JSON/XML, vista previa de Markdown y HTML, UTF-8/UTF-16/ANSI y macros.
 auto_indent	Keep the indent on Enter	Mantener la sangría al pulsar Intro
 autosave_files	Also save files automatically	Guardar también los archivos automáticamente
 bom	Byte order mark (BOM)	Marca de orden de bytes (BOM)
@@ -135,3 +135,10 @@ yaml_check	Check YAML	Validar YAML
 zoom_in	Zoom in	Aumentar
 zoom_out	Zoom out	Reducir
 zoom_reset	Reset zoom	Tamaño normal
+preview	Preview	Vista previa
+preview_off	Editor	Editor
+preview_split	Split	Doble panel
+preview_only	Preview	Vista previa
+preview_halves	Panels at half	Paneles a la mitad
+preview_hint	The preview is for Markdown and HTML	La vista previa es para Markdown y HTML
+link_not_found	Not found: {}	No se encuentra: {}

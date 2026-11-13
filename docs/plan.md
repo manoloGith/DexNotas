@@ -33,6 +33,10 @@ Android solo se ha comprobado que compila y se empaqueta**; la lista de qué pro
   que se ve, en un hilo aparte. Las líneas muy largas (JSON en una línea) se parten en trozos al
   pintarlas. Sin selección por columnas.
 
+- **Vista previa** (`preview/`, `ui/preview.rs`): Markdown con pulldown-cmark y HTML con un
+  lector propio tolerante, a bloques que se dibujan con egui (solo los visibles). Sin motor web:
+  el HTML se ve sin CSS ni JavaScript, y las imágenes de la web no se descargan.
+
 ## Pendiente o posible
 
 - Teclado en pantalla en el móvil: depende de craft-android, sin probar aquí.

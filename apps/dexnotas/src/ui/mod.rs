@@ -2,6 +2,7 @@
 
 pub mod code_editor;
 mod menus;
+pub mod preview;
 pub mod theme;
 
 use std::path::{Path, PathBuf};
@@ -61,6 +62,12 @@ pub enum Action {
     PlaySaved(usize),
     ManageMacros,
     About,
+    /// Where the preview of the active document is.
+    SetPreview(crate::preview::Mode),
+    /// Open the preview beside the editor, or close it.
+    TogglePreview,
+    /// A link in the preview was clicked.
+    FollowLink(String),
 }
 
 /// A window over the editor.
@@ -132,6 +139,7 @@ pub struct App {
     hits_open: bool,
     actions: Vec<Action>,
     highlighter: crate::highlight::Worker,
+    previewer: crate::preview::Worker,
     /// Editor requests for the next frame.
     select: Option<(usize, usize)>,
     focus_editor: bool,
@@ -193,6 +201,7 @@ impl App {
             hits_open: false,
             actions: Vec::new(),
             highlighter: crate::highlight::Worker::new(cc.egui_ctx.clone()),
+            previewer: crate::preview::Worker::new(cc.egui_ctx.clone()),
             select: None,
             focus_editor: true,
             editor_focused: false,
@@ -220,6 +229,8 @@ impl App {
             app.select = Some(d.cursor);
         }
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
+        preview::install_fonts(&cc.egui_ctx);
+        egui_extras::install_image_loaders(&cc.egui_ctx);
         app
     }
 
@@ -492,6 +503,7 @@ impl App {
         push(Action::ZoomReset, shortcut(CTRL, Key::Num0), ctx, &mut out);
         push(Action::ToggleRecord, shortcut(CTRL_SHIFT, Key::R), ctx, &mut out);
         push(Action::Play(Repeat::Times(1)), shortcut(CTRL_SHIFT, Key::P), ctx, &mut out);
+        push(Action::TogglePreview, shortcut(CTRL_SHIFT, Key::V), ctx, &mut out);
         for (slot, key) in [Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5, Key::Num6, Key::Num7, Key::Num8, Key::Num9].into_iter().enumerate() {
             if let Some(i) = self.macros.iter().position(|m| m.slot == Some(slot as u8 + 1)) {
                 push(Action::PlaySaved(i), shortcut(CTRL_ALT, key), ctx, &mut out);
@@ -719,6 +731,48 @@ impl App {
             }
             Action::ManageMacros => self.dialog = Some(Dialog::ManageMacros),
             Action::About => self.dialog = Some(Dialog::About),
+            Action::SetPreview(mode) => self.set_preview(mode),
+            Action::TogglePreview => {
+                let mode = self.doc().map_or(crate::preview::Mode::Off, |d| d.preview.mode);
+                self.set_preview(if mode == crate::preview::Mode::Off { crate::preview::Mode::Split } else { crate::preview::Mode::Off });
+            }
+            Action::FollowLink(link) => self.follow_link(&link),
+        }
+    }
+
+    fn set_preview(&mut self, mode: crate::preview::Mode) {
+        let Some(d) = self.doc_mut() else { return };
+        if crate::preview::Source::of(d.language).is_none() {
+            self.set_status(t("preview_hint"), false);
+            return;
+        }
+        d.preview.mode = mode;
+        d.preview.followed_line = None;
+        if mode != crate::preview::Mode::Only {
+            self.focus_editor = true;
+        }
+    }
+
+    /// A link in the preview: a web address opens in the browser, a file next to the document
+    /// opens in a tab.
+    fn follow_link(&mut self, link: &str) {
+        let link = link.trim();
+        if link.is_empty() || link.starts_with('#') {
+            return;
+        }
+        let lower = link.to_ascii_lowercase();
+        if lower.starts_with("http://") || lower.starts_with("https://") || lower.starts_with("mailto:") {
+            self.ctx.open_url(egui::OpenUrl::new_tab(link));
+            return;
+        }
+        let path = link.split('#').next().unwrap_or(link);
+        let path = path.strip_prefix("file://").unwrap_or(path);
+        let base = self.doc().and_then(|d| d.path.as_ref()).and_then(|p| p.parent()).map(Path::to_path_buf);
+        let target = if Path::new(path).is_absolute() { PathBuf::from(path) } else if let Some(base) = base { base.join(path) } else { PathBuf::from(path) };
+        if target.is_file() {
+            self.open_path(&target);
+        } else {
+            self.set_status(tf("link_not_found", link), true);
         }
     }
 
@@ -1022,6 +1076,7 @@ impl eframe::App for App {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.apply_settings(ctx);
         self.highlighter.receive(&mut self.docs);
+        self.previewer.receive(&mut self.docs);
         for path in platform::opened() {
             self.open_path(&path);
         }

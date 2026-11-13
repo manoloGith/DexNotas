@@ -22,6 +22,8 @@ pub struct Settings {
     pub auto_indent: bool,
     /// Also write documents that have a file to it, a moment after each change.
     pub autosave_files: bool,
+    /// The editor's share of the window when the preview is beside it (or below it).
+    pub preview_split: f32,
 }
 
 impl Default for Settings {
@@ -37,6 +39,7 @@ impl Default for Settings {
             indent_width: 4,
             auto_indent: true,
             autosave_files: false,
+            preview_split: 0.5,
         }
     }
 }

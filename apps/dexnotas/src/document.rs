@@ -39,6 +39,8 @@ pub struct Document {
     pub view: crate::ui::code_editor::View,
     /// Syntax colours (`highlight`).
     pub highlight: crate::highlight::Colours,
+    /// The Markdown or HTML preview (`preview`).
+    pub preview: crate::preview::State,
     /// The whole text as one string, for searches (rebuilt when the text changed).
     flat: Option<(u64, Arc<String>)>,
 }
@@ -82,6 +84,7 @@ impl Document {
             cursor: (0, 0),
             view: Default::default(),
             highlight: Default::default(),
+            preview: Default::default(),
             flat: None,
         }
     }

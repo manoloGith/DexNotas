@@ -38,6 +38,10 @@ quick-xml = "0.38"
 # Validating YAML and TOML.
 serde_yaml_ng = "0.10"
 toml = "0.9"
+# The preview: Markdown parsing, and images (PNG, JPEG, GIF, WebP, BMP) from files.
+pulldown-cmark = { version = "0.13", default-features = false }
+egui_extras = { version = "0.37", default-features = false, features = ["image", "file"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp"] }
 craft-android = { path = "../../craft-android/crates/craft-android" }
 
 # Syntax highlighting with tree-sitter: the grammars Notepad Studio uses

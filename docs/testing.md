@@ -84,6 +84,22 @@ para copiarlo.
 - [ ] YAML y TOML con un error: Validar indica la línea.
 - [ ] Con una selección, solo se formatea lo seleccionado.
 
+## 8b. Vista previa de Markdown y HTML
+
+- [ ] Abrir un .md: Ctrl+Mayús+V (o «Doble panel» en la barra de estado, o Ver ▸ Vista previa)
+      abre la vista previa al lado; otra vez Ctrl+Mayús+V la cierra; «Vista previa» la deja sola.
+- [ ] Arrastrar el divisor (los tres puntos) cambia el tamaño; doble clic lo pone a la mitad; el
+      tamaño se recuerda.
+- [ ] En el móvil en vertical, los paneles quedan uno encima del otro.
+- [ ] Escribir en el editor actualiza la vista previa; al desplazar el editor, la vista previa le
+      sigue.
+- [ ] Negrita, cursiva, tachado, código, enlaces, listas (anidadas, numeradas, de tareas), citas,
+      tablas con alineación, bloques de código con colores, notas al pie.
+- [ ] Una imagen local (`![](imagen.png)` junto al .md) se ve; una de la web muestra su texto.
+- [ ] Un enlace web abre el navegador; un enlace a otro .md lo abre en una pestaña.
+- [ ] Un .html: títulos, párrafos, listas, tablas, `<pre>`, imágenes; sin CSS ni scripts.
+- [ ] La vista previa de cada pestaña vuelve como estaba al reabrir la app.
+
 ## 9. Macros
 
 - [ ] Ctrl+Mayús+R, escribir y moverse (por ejemplo: Inicio, «- », Abajo), Ctrl+Mayús+R otra vez;

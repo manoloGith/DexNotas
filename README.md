@@ -19,6 +19,10 @@ reapertura fiables y un informe de diagnóstico que se copia sin adb.
   `#!`, y elegibles a mano.
 - **Formatear**: JSON y XML/HTML/SVG (formatear, compactar, validar); YAML y TOML (validar), con
   la línea del error.
+- **Vista previa de Markdown y HTML**: en doble panel (lado a lado, o arriba y abajo en una
+  pantalla estrecha) con el divisor arrastrable, o sola (Ctrl+Mayús+V o la barra de estado). Sigue
+  al editor al desplazarse, muestra tablas, listas de tareas, código con colores e imágenes
+  locales, y los enlaces abren la web o el archivo `.md` enlazado. El HTML se ve sin CSS ni scripts.
 - **Codificaciones**: UTF-8 (con o sin BOM), UTF-16 LE/BE (con o sin BOM), ANSI (Windows-1252) y
   otras páginas de códigos; reabrir con otra, convertir, fin de línea CRLF/LF/CR.
 - **Macros**: grabar (Ctrl+Mayús+R), reproducir una vez, N veces o hasta el final, guardarlas con
@@ -44,6 +48,7 @@ DexNotas/
 │   ├── src/edit_ops.rs     operaciones del menú Editar
 │   ├── src/macros.rs       grabar y reproducir
 │   ├── src/syntax/         resaltado (tree-sitter)
+│   ├── src/preview/        Markdown y HTML para la vista previa
 │   ├── src/ui/             la interfaz egui
 │   ├── src/android.rs      android_main y el puente con MainActivity
 │   ├── strings.tsv         textos en inglés y español
