@@ -102,12 +102,11 @@ fn show(id: i64, message: &Message, buttons: &Buttons) -> Result<(), String> {
     platform::with_env(|env| {
         let activity = platform::activity(env)?;
         let class = platform::find_app_class(env, "io.github.dexnotas.Dialogs")?;
-        let text = |env: &mut jni::Env, s: &str| env.new_string(s).map_err(|e| e.to_string());
-        let title = text(env, &message.title)?;
-        let description = text(env, &message.description)?;
-        let positive = text(env, &label(0))?;
-        let negative = text(env, &label(1))?;
-        let neutral = text(env, &label(2))?;
+        let title = env.new_string(&message.title).map_err(|e| e.to_string())?;
+        let description = env.new_string(&message.description).map_err(|e| e.to_string())?;
+        let positive = env.new_string(label(0)).map_err(|e| e.to_string())?;
+        let negative = env.new_string(label(1)).map_err(|e| e.to_string())?;
+        let neutral = env.new_string(label(2)).map_err(|e| e.to_string())?;
         env.call_static_method(
             &class,
             jni::jni_str!("message"),
