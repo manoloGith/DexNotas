@@ -31,8 +31,9 @@ reapertura fiables y un informe de diagnóstico que se copia sin adb.
   nombre y atajo Ctrl+Alt+1…9.
 - **Edición**: números de línea, línea actual, ajuste de línea, zoom, comentar, duplicar, eliminar
   y ordenar líneas, mayúsculas/minúsculas, sangría con Tab/Mayús+Tab, mantener la sangría.
-- **Ecosistema Dex**: DexFiles la ofrece para los archivos de texto y código; «Abrir con» y
-  «Compartir» desde otras apps.
+- **Ecosistema Dex**: DexFiles la pone como app predeterminada para unas 190 extensiones de
+  texto y código, y aparece siempre en «Abrir con», para cualquier archivo; «Compartir» desde
+  otras apps.
 
 Estado y fases: [docs/plan.md](docs/plan.md). Qué probar: [docs/testing.md](docs/testing.md).
 

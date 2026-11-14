@@ -68,6 +68,17 @@
                 <data android:mimeType="application/sql" />
             </intent-filter>
 
+            <!-- Any file: DexNotas is always in "Open with" (DexFiles' and the system's), for a text
+                 format or a language with an extension nobody declares. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+
             <!-- "Share" one or several text files to the app: they open in tabs. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -78,15 +89,16 @@
                 <data android:mimeType="application/xml" />
             </intent-filter>
 
-            <!-- DexFiles' "Open" (DexFiles docs/apps-dex.md) for what DexNotas edits as text:
-                 plain text, CSV/TSV and the extensions of the highlighted languages. -->
+            <!-- DexFiles' "Open" (DexFiles docs/apps-dex.md): DexFiles makes DexNotas the default app for
+                 these extensions. First the languages DexNotas colours (a test checks that every
+                 extension of syntax::language_for_path is here), then other text formats. -->
             <intent-filter>
                 <action android:name="io.github.dexfiles.action.OPEN" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <meta-data
                 android:name="io.github.dexfiles.extensions"
-                android:value="txt,text,log,ini,cfg,conf,csv,tsv,md,markdown,json,xml,svg,xhtml,xsl,xslt,html,htm,css,scss,yaml,yml,toml,sql,rs,py,pyi,pyw,c,h,cpp,cxx,cc,hpp,hxx,hh,cs,js,mjs,cjs,jsx,ts,tsx,go,java,swift,rb,rake,gemspec,php,phtml,lua,sh,bash,zsh,ksh,ps1,psm1,psd1" />
+                android:value="rs,py,pyi,pyw,c,h,cpp,cxx,cc,hpp,hxx,hh,ino,cs,js,mjs,cjs,jsx,ts,mts,cts,tsx,go,java,swift,rb,rake,gemspec,php,phtml,lua,sh,bash,zsh,ksh,ps1,psm1,psd1,sql,json,jsonc,json5,jsonl,ndjson,geojson,webmanifest,har,md,markdown,mdx,mkd,mdown,html,htm,shtml,xht,xhtml,vue,svelte,css,less,scss,yaml,yml,toml,ini,xml,svg,xsl,xslt,xsd,wsdl,rss,atom,plist,csproj,vbproj,fsproj,props,targets,xaml,resx,kml,gpx,fxml,nuspec,config,txt,text,log,cfg,conf,properties,env,csv,tsv,tab,nfo,diz,srt,vtt,ass,tex,bib,rst,adoc,asciidoc,org,textile,diff,patch,lock,gitignore,gitattributes,gitmodules,editorconfig,dockerignore,npmignore,dockerfile,makefile,mk,cmake,gradle,kt,kts,dart,r,pl,pm,bat,cmd,vb,vbs,asm,s,f90,hs,ml,ex,exs,erl,clj,scala,groovy,jl,nim,zig,tf,hcl,nix,proto,graphql,gql,ics,vcf,reg,inf" />
         </activity>
 
         <!-- RestartActivity and the clipboard's FileProvider come from craft-activity's manifest. -->

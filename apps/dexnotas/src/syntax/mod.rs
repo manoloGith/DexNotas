@@ -170,10 +170,10 @@ pub fn language_for_path(path: &Path) -> Option<LanguageId> {
         "c" => LanguageId::C,
         "cs" => LanguageId::CSharp,
         "js" | "mjs" | "cjs" | "jsx" => LanguageId::JavaScript,
-        "ts" => LanguageId::TypeScript,
+        "ts" | "mts" | "cts" => LanguageId::TypeScript,
         "tsx" => LanguageId::Tsx,
-        "json" => LanguageId::Json,
-        "md" | "markdown" => LanguageId::Markdown,
+        "json" | "jsonc" | "json5" | "jsonl" | "ndjson" | "geojson" | "webmanifest" | "har" => LanguageId::Json,
+        "md" | "markdown" | "mdx" | "mkd" | "mdown" => LanguageId::Markdown,
         "sh" | "bash" | "zsh" | "ksh" => LanguageId::Bash,
         "ps1" | "psm1" | "psd1" => LanguageId::PowerShell,
         "go" => LanguageId::Go,
@@ -181,14 +181,15 @@ pub fn language_for_path(path: &Path) -> Option<LanguageId> {
         "swift" => LanguageId::Swift,
         "rb" | "rake" | "gemspec" => LanguageId::Ruby,
         "php" | "phtml" => LanguageId::Php,
-        "cpp" | "cxx" | "cc" | "h" | "hpp" | "hxx" | "hh" => LanguageId::Cpp,
+        "cpp" | "cxx" | "cc" | "h" | "hpp" | "hxx" | "hh" | "ino" => LanguageId::Cpp,
         "lua" => LanguageId::Lua,
-        "html" | "htm" => LanguageId::Html,
-        "css" => LanguageId::Css,
+        "html" | "htm" | "shtml" | "xht" | "vue" | "svelte" => LanguageId::Html,
+        "css" | "less" => LanguageId::Css,
         "scss" => LanguageId::Scss,
         "yaml" | "yml" => LanguageId::Yaml,
-        "toml" => LanguageId::Toml,
-        "xml" | "svg" | "xhtml" | "xsl" | "xslt" => LanguageId::Xml,
+        "toml" | "ini" => LanguageId::Toml,
+        "xml" | "svg" | "xhtml" | "xsl" | "xslt" | "xsd" | "wsdl" | "rss" | "atom" | "plist" | "csproj" | "vbproj" | "fsproj" | "props"
+        | "targets" | "xaml" | "resx" | "kml" | "gpx" | "fxml" | "nuspec" | "config" => LanguageId::Xml,
         "sql" => LanguageId::Sql,
         _ => return None,
     })
@@ -392,5 +393,32 @@ mod tests {
         assert_eq!(detect(Some(Path::new("a/b.RS")), ""), Some(LanguageId::Rust));
         assert_eq!(detect(None, "#!/usr/bin/env python3\n"), Some(LanguageId::Python));
         assert_eq!(detect(Some(Path::new("notes.txt")), "hello"), None);
+    }
+}
+
+#[cfg(test)]
+mod declared_extensions {
+    /// DexFiles learns what DexNotas opens from the manifest: every extension DexNotas colours
+    /// must be declared there.
+    #[test]
+    fn the_manifest_declares_every_highlighted_extension() {
+        let manifest = include_str!("../../android/app/src/main/AndroidManifest.xml");
+        let at = manifest.find("io.github.dexfiles.extensions").unwrap_or(0);
+        let value = manifest[at..].split("android:value=\"").nth(1).and_then(|v| v.split('"').next()).unwrap_or("");
+        let declared: Vec<&str> = value.split(',').map(str::trim).collect();
+        let source = include_str!("mod.rs");
+        let start = source.find("pub fn language_for_path").unwrap_or(0);
+        let end = source[start..].find("\n}\n").map_or(source.len(), |e| start + e);
+        let missing: Vec<&str> = source[start..end]
+            .split('"')
+            .skip(1)
+            .step_by(2)
+            .filter(|e| e.chars().all(|c| c.is_ascii_alphanumeric()) && !matches!(*e, "rakefile" | "gemfile"))
+            .filter(|e| !declared.contains(e))
+            .collect();
+        assert!(missing.is_empty(), "not declared in AndroidManifest.xml: {missing:?}");
+        let mut seen = std::collections::HashSet::new();
+        let repeated: Vec<&&str> = declared.iter().filter(|e| !seen.insert(**e)).collect();
+        assert!(repeated.is_empty(), "declared twice: {repeated:?}");
     }
 }

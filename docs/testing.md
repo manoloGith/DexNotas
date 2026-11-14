@@ -134,6 +134,11 @@ serie):
 ## 10. Ecosistema y móvil
 
 - [ ] Desde DexFiles, «Abrir» un .txt, .json o .py: DexNotas aparece y lo abre en una pestaña.
+- [ ] DexFiles ▸ Ajustes ▸ Aplicaciones predeterminadas: DexNotas aparece para las extensiones de
+      los lenguajes (.rs, .py, .ts, .vue, .jsonc, .mdx, .xsd…) y de texto (.log, .env, .srt,
+      .diff, .kt, .gradle…).
+- [ ] En DexFiles, «Abrir con» de un archivo con una extensión rara (.foo) o sin extensión:
+      DexNotas está en la lista y lo abre como texto.
 - [ ] «Abrir con» y «Compartir» un archivo de texto desde otra app.
 - [ ] Archivo ▸ Compartir texto: abre el menú de compartir de Android.
 - [ ] En el móvil sin DeX: el teclado en pantalla aparece al tocar el editor y se puede escribir.
