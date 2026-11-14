@@ -63,6 +63,16 @@ para copiarlo.
 - [ ] «En todas las pestañas» (Ctrl+Mayús+F): lista abajo; un clic lleva a la línea.
 - [ ] Ctrl+G: ir a una línea.
 
+## 6a. Menú contextual
+
+- [ ] Clic derecho (o pulsación larga) en el texto: Deshacer, Rehacer, Cortar, Copiar, Pegar,
+      Eliminar, Seleccionar todo, Buscar, Comentar, MAYÚSCULAS, minúsculas (y Plegar/Desplegar
+      en una línea que lo permite).
+- [ ] Sin selección, el clic derecho mueve el cursor allí y Cortar/Copiar/Eliminar salen en gris;
+      sobre una selección, la conserva.
+- [ ] Copiar y luego Pegar en otro sitio; Pegar texto copiado en otra app (navegador, DexFiles).
+- [ ] Clic fuera o Esc lo cierra sin hacer nada.
+
 ## 6b. Plegado de código
 
 - [ ] En un .py, .kt o .rs aparece − junto a las funciones y bloques (if, for, clases…); un clic

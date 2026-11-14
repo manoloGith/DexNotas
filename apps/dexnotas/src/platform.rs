@@ -104,6 +104,21 @@ pub fn share_text(title: &str, text: &str) -> bool {
     }
 }
 
+/// The text on the clipboard (Android: for Paste in a menu; on a desktop the window pastes it).
+#[cfg(target_os = "android")]
+pub fn clipboard_text() -> Option<String> {
+    match craft_android::android::clipboard::get()? {
+        craft_android::android::clipboard::Clip::Text(t) => Some(t),
+        craft_android::android::clipboard::Clip::Html { text, .. } => Some(text),
+        _ => None,
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn clipboard_text() -> Option<String> {
+    None
+}
+
 /// A short message from the system (Android), or the log.
 pub fn toast(text: &str) {
     #[cfg(target_os = "android")]

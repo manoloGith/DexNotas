@@ -74,6 +74,16 @@ pub enum Action {
     ToggleWebPreview,
     /// Fold or open regions of code.
     Fold(FoldCmd),
+    /// Cut, copy, paste or delete (the context menu).
+    Clipboard(ClipCmd),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClipCmd {
+    Cut,
+    Copy,
+    Paste,
+    Delete,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -177,6 +187,8 @@ pub struct App {
     match_count: Option<((u64, u64, Query), Option<usize>)>,
     /// The tab whose menu is open (right click), and where.
     tab_menu: Option<(u64, egui::Pos2)>,
+    /// The editor's context menu, open at this point.
+    editor_menu: Option<egui::Pos2>,
     ctx: egui::Context,
 }
 
@@ -234,6 +246,7 @@ impl App {
             dirty_since: None,
             match_count: None,
             tab_menu: None,
+            editor_menu: None,
             ctx: cc.egui_ctx.clone(),
         };
         if !problems.is_empty() {
@@ -771,6 +784,38 @@ impl App {
                 self.set_preview(if mode == crate::preview::Mode::Off { crate::preview::Mode::Split } else { crate::preview::Mode::Off });
             }
             Action::FollowLink(link) => self.follow_link(&link),
+            Action::Clipboard(cmd) => {
+                // The editor does these as for Ctrl+X, Ctrl+C, Ctrl+V and Delete: the same events.
+                let event = match cmd {
+                    ClipCmd::Cut => Some(egui::Event::Cut),
+                    ClipCmd::Copy => Some(egui::Event::Copy),
+                    ClipCmd::Paste => {
+                        if cfg!(target_os = "android") {
+                            platform::clipboard_text().map(egui::Event::Paste)
+                        } else {
+                            // The window's own clipboard pastes as for Ctrl+V.
+                            self.ctx.send_viewport_cmd(egui::ViewportCommand::RequestPaste);
+                            self.focus_editor = true;
+                            return;
+                        }
+                    }
+                    ClipCmd::Delete => Some(egui::Event::Key {
+                        key: Key::Delete,
+                        physical_key: None,
+                        pressed: true,
+                        repeat: false,
+                        modifiers: Modifiers::NONE,
+                    }),
+                };
+                match event {
+                    Some(e) => {
+                        self.pending_events.push(e);
+                        self.ctx.request_repaint();
+                    }
+                    None => self.set_status(t("clipboard_empty"), false),
+                }
+                self.focus_editor = true;
+            }
             Action::Fold(cmd) => {
                 if let Some(d) = self.doc_mut() {
                     match cmd {

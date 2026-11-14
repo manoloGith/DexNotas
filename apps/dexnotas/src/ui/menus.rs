@@ -49,6 +49,7 @@ pub fn window(app: &mut App, ui: &mut Ui) {
         app.tab_menu = Some((*id, pos));
     }
     tab_menu(app, ui.ctx());
+    editor_menu(app, ui.ctx());
     egui::Panel::bottom("status")
         .frame(egui::Frame::new().fill(pal.bar).inner_margin(egui::Margin::symmetric(10, 3)))
         .show(ui, |ui| status_bar(app, ui));
@@ -112,6 +113,71 @@ fn tab_menu(app: &mut App, ctx: &egui::Context) {
     if area.inner || clicked_elsewhere || ctx.input(|i| i.key_pressed(Key::Escape)) {
         app.tab_menu = None;
     }
+}
+
+/// The editor's context menu (right click or long press on the text).
+fn editor_menu(app: &mut App, ctx: &egui::Context) {
+    let Some(pos) = app.editor_menu else { return };
+    let Some(doc) = app.docs.get(app.active) else {
+        app.editor_menu = None;
+        return;
+    };
+    let selected = doc.cursor.0 != doc.cursor.1;
+    let (can_undo, can_redo) = (doc.buffer.can_undo(), doc.buffer.can_redo());
+    let rope = doc.buffer.rope();
+    let line = rope.char_to_line(doc.cursor.1.min(rope.len_chars()));
+    let folded = doc.view.folds.is_folded(line);
+    let foldable = super::folding::foldable(rope, line);
+    let a = &mut app.actions;
+    let area = egui::Area::new(egui::Id::unique("editor-menu")).order(egui::Order::Foreground).fixed_pos(pos).constrain(true).show(ctx, |ui| {
+        egui::Frame::menu(ui.style()).show(ui, |ui| {
+            ui.set_min_width(240.0);
+            ui.style_mut().visuals.button_frame = false;
+            ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| editor_menu_items(ui, selected, can_undo, can_redo, folded, foldable))
+                .inner
+        })
+        .inner
+    });
+    let chosen = area.inner;
+    let pressed_elsewhere = ctx.input(|i| i.pointer.any_pressed()) && !area.response.contains_pointer();
+    if let Some(action) = chosen {
+        a.push(action);
+        app.editor_menu = None;
+    } else if (pressed_elsewhere && !ctx.input(|i| i.pointer.secondary_pressed())) || ctx.input(|i| i.key_pressed(Key::Escape)) {
+        app.editor_menu = None;
+    }
+}
+
+fn editor_menu_items(ui: &mut Ui, selected: bool, can_undo: bool, can_redo: bool, folded: bool, foldable: bool) -> Option<Action> {
+            let mut chosen = None;
+            let mut entry = |ui: &mut Ui, enabled: bool, label: &str, keys: &str, action: Action| {
+                if ui.add_enabled(enabled, Button::new(label).shortcut_text(keys)).clicked() {
+                    chosen = Some(action);
+                }
+            };
+            entry(ui, can_undo, t("undo"), "Ctrl+Z", Action::Undo);
+            entry(ui, can_redo, t("redo"), "Ctrl+Y", Action::Redo);
+            ui.separator();
+            entry(ui, selected, t("cut"), "Ctrl+X", Action::Clipboard(super::ClipCmd::Cut));
+            entry(ui, selected, t("copy"), "Ctrl+C", Action::Clipboard(super::ClipCmd::Copy));
+            entry(ui, true, t("paste"), "Ctrl+V", Action::Clipboard(super::ClipCmd::Paste));
+            entry(ui, selected, t("delete_text"), "Supr", Action::Clipboard(super::ClipCmd::Delete));
+            ui.separator();
+            entry(ui, true, t("select_all"), "Ctrl+A", Action::Edit(Command::SelectAll));
+            entry(ui, true, t("find"), "Ctrl+F", Action::ShowFind { replace: false });
+            ui.separator();
+            entry(ui, true, t("toggle_comment"), "Ctrl+/", Action::Edit(Command::ToggleComment));
+            entry(ui, true, t("upper"), "Ctrl+Shift+U", Action::Edit(Command::Upper));
+            entry(ui, true, t("lower"), "Ctrl+U", Action::Edit(Command::Lower));
+            if folded || foldable {
+                ui.separator();
+                if folded {
+                    entry(ui, true, t("unfold_here"), "Ctrl+Alt+Shift+F", Action::Fold(super::FoldCmd::OpenHere));
+                } else {
+                    entry(ui, true, t("fold_here"), "Ctrl+Alt+F", Action::Fold(super::FoldCmd::Here));
+                }
+            }
+            chosen
 }
 
 fn menu_bar(app: &mut App, ui: &mut Ui) {
@@ -647,6 +713,9 @@ fn editor(app: &mut App, ui: &mut Ui) {
         }
         if let Some(indent) = out.indent {
             app.actions.push(Action::Edit(if indent { Command::Indent } else { Command::Outdent }));
+        }
+        if let Some(p) = out.context_menu {
+            app.editor_menu = Some(p);
         }
     }
 }

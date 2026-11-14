@@ -32,6 +32,8 @@ reapertura fiables y un informe de diagnóstico que se copia sin adb.
   nombre y atajo Ctrl+Alt+1…9.
 - **Plegado de código**: − y + en el margen para contraer y expandir funciones y bloques (por
   sangría, en cualquier lenguaje); Ctrl+Alt+F / Ctrl+Alt+Mayús+F, Alt+0 / Alt+Mayús+0 para todo.
+- **Menú contextual** (clic derecho o pulsación larga): deshacer, cortar, copiar, pegar, eliminar,
+  seleccionar todo, buscar, comentar, mayúsculas/minúsculas, plegar.
 - **Edición**: números de línea, línea actual, ajuste de línea, zoom, comentar, duplicar, eliminar
   y ordenar líneas, mayúsculas/minúsculas, sangría con Tab/Mayús+Tab, mantener la sangría.
 - **Ecosistema Dex**: DexFiles la pone como app predeterminada para unas 350 extensiones de

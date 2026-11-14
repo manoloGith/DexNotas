@@ -111,6 +111,8 @@ pub struct Output {
     pub visible_bytes: Range<usize>,
     /// Edits the editor asks the app to run (Tab on several lines).
     pub indent: Option<bool>,
+    /// A right click (or a long press) on the text: where to open the context menu.
+    pub context_menu: Option<Pos2>,
 }
 
 pub fn editor_id(doc: u64) -> Id {
@@ -693,6 +695,7 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
 
     let mut changed = false;
     let mut indent_request = None;
+    let mut context_menu = None;
     if let Some((a, b)) = requests.select {
         let len = doc.len_chars();
         doc.cursor = (a.min(len), b.min(len));
@@ -845,6 +848,27 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
         doc.view.clicks = clicks;
         if let Some(line) = fold_click {
             toggle_fold(doc, line);
+        }
+        // Right click or long press: the context menu, with the cursor moved there unless it is
+        // on the selection.
+        let secondary = ui.input(|i| {
+            i.events.iter().any(|e| matches!(e, Event::PointerButton { button: egui::PointerButton::Secondary, pressed: true, .. }))
+        });
+        if ((secondary && response.contains_pointer()) || response.long_touched())
+            && let Some(p) = pointer.filter(|p| text_rect.contains(*p))
+        {
+            let l = Layout { ctx: ctx.clone(), font: look.font.clone(), row_height, char_width, wrap, palette, dark: look.dark, doc };
+            let lines = visible(&l, &doc.view, height, width);
+            let at = char_at(&l, &lines, &doc.view, text_rect.min, p);
+            drop(lines);
+            drop(l);
+            let (a, b) = (doc.cursor.0.min(doc.cursor.1), doc.cursor.0.max(doc.cursor.1));
+            if at < a || at > b || a == b {
+                doc.cursor = (at, at);
+                doc.view.preferred_x = None;
+            }
+            context_menu = Some(p);
+            ui.memory_mut(|m| m.request_focus(id));
         }
         if let Some(sel) = set_cursor {
             if sel != doc.cursor {
@@ -1056,7 +1080,7 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
         ctx.set_cursor_icon(if on_pill || on_marker { CursorIcon::PointingHand } else { CursorIcon::Text });
     }
     ui.advance_cursor_after_rect(full);
-    Output { changed, focused, visible_bytes, indent: indent_request }
+    Output { changed, focused, visible_bytes, indent: indent_request, context_menu }
 }
 
 #[allow(clippy::too_many_arguments)]

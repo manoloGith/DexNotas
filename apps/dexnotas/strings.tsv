@@ -149,3 +149,8 @@ fold_here	Fold region	Plegar región
 unfold_here	Unfold region	Desplegar región
 fold_all	Fold all	Plegar todo
 unfold_all	Unfold all	Desplegar todo
+cut	Cut	Cortar
+copy	Copy	Copiar
+paste	Paste	Pegar
+delete_text	Delete	Eliminar
+clipboard_empty	The clipboard has no text	El portapapeles no tiene texto
