@@ -202,6 +202,7 @@ pub(super) fn build_config(lang: LanguageId) -> Option<HighlightConfiguration> {
             "",
             "",
         ),
+        LanguageId::Hljs(_) => return None,
     };
     match result {
         Ok(cfg) => Some(cfg),

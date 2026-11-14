@@ -14,6 +14,13 @@ use crate::syntax::{self, Kind, LanguageId};
 pub const WHOLE_LIMIT: usize = 4 * 1024 * 1024;
 /// Around the screen, for larger documents.
 pub const WINDOW_MARGIN: usize = 256 * 1024;
+/// The same for highlight.js languages (slower: JavaScript, some 200 KB a second on a phone).
+pub const HLJS_WHOLE_LIMIT: usize = 128 * 1024;
+pub const HLJS_WINDOW_MARGIN: usize = 32 * 1024;
+
+fn limits(language: LanguageId) -> (usize, usize) {
+    if language.is_tree_sitter() { (WHOLE_LIMIT, WINDOW_MARGIN) } else { (HLJS_WHOLE_LIMIT, HLJS_WINDOW_MARGIN) }
+}
 
 /// A document's colours.
 #[derive(Default)]
@@ -160,7 +167,8 @@ impl Worker {
             c.exact = None;
             c.language = Some(language);
         }
-        let whole = len <= WHOLE_LIMIT;
+        let (whole_limit, margin) = limits(language);
+        let whole = len <= whole_limit;
         let covered = whole || (c.window.start <= visible.start && c.window.end >= visible.end.min(len));
         if c.pending.is_some() || (c.exact == Some(version) && covered) {
             return;
@@ -169,8 +177,8 @@ impl Worker {
         let window = if whole {
             0..len
         } else {
-            let start = rope.line_to_byte(rope.byte_to_line(visible.start.saturating_sub(WINDOW_MARGIN)));
-            let end_line = rope.byte_to_line(visible.end.saturating_add(WINDOW_MARGIN).min(len));
+            let start = rope.line_to_byte(rope.byte_to_line(visible.start.saturating_sub(margin)));
+            let end_line = rope.byte_to_line(visible.end.saturating_add(margin).min(len));
             let end = if end_line + 1 >= rope.len_lines() { len } else { rope.line_to_byte(end_line + 1) };
             start..end
         };

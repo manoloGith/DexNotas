@@ -3,7 +3,7 @@
 //! (DexFiles, DexPdfCraft).
 //!
 //! Tabs that come back with their unsaved text, find and replace with regular expressions,
-//! highlighting for 25 languages, JSON/XML formatting, UTF-8/UTF-16/ANSI and macros.
+//! highlighting for about 195 languages, JSON/XML formatting, UTF-8/UTF-16/ANSI and macros.
 //!
 //! The Android app (`android/`) is craft-android's `CraftActivity` (GameActivity), which loads
 //! this library and calls `android_main`; egui draws the window with wgpu (Vulkan or GLES), or

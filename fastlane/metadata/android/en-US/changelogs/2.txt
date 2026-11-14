@@ -1,0 +1,1 @@
+About 195 highlighted languages (tree-sitter and highlight.js), language menu by initial, more extensions for DexFiles and always in Open with, light blue icon.

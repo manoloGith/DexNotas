@@ -1,0 +1,1 @@
+Unos 195 lenguajes con colores (tree-sitter y highlight.js), menú de lenguajes por iniciales, más extensiones para DexFiles y siempre en «Abrir con», icono azul claro.

@@ -90,15 +90,15 @@
             </intent-filter>
 
             <!-- DexFiles' "Open" (DexFiles docs/apps-dex.md): DexFiles makes DexNotas the default app for
-                 these extensions. First the languages DexNotas colours (a test checks that every
-                 extension of syntax::language_for_path is here), then other text formats. -->
+                 these extensions. First the tree-sitter languages, then the highlight.js ones, then
+                 other text formats (a test checks that every extension DexNotas colours is here). -->
             <intent-filter>
                 <action android:name="io.github.dexfiles.action.OPEN" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <meta-data
                 android:name="io.github.dexfiles.extensions"
-                android:value="rs,py,pyi,pyw,c,h,cpp,cxx,cc,hpp,hxx,hh,ino,cs,js,mjs,cjs,jsx,ts,mts,cts,tsx,go,java,swift,rb,rake,gemspec,php,phtml,lua,sh,bash,zsh,ksh,ps1,psm1,psd1,sql,json,jsonc,json5,jsonl,ndjson,geojson,webmanifest,har,md,markdown,mdx,mkd,mdown,html,htm,shtml,xht,xhtml,vue,svelte,css,less,scss,yaml,yml,toml,ini,xml,svg,xsl,xslt,xsd,wsdl,rss,atom,plist,csproj,vbproj,fsproj,props,targets,xaml,resx,kml,gpx,fxml,nuspec,config,txt,text,log,cfg,conf,properties,env,csv,tsv,tab,nfo,diz,srt,vtt,ass,tex,bib,rst,adoc,asciidoc,org,textile,diff,patch,lock,gitignore,gitattributes,gitmodules,editorconfig,dockerignore,npmignore,dockerfile,makefile,mk,cmake,gradle,kt,kts,dart,r,pl,pm,bat,cmd,vb,vbs,asm,s,f90,hs,ml,ex,exs,erl,clj,scala,groovy,jl,nim,zig,tf,hcl,nix,proto,graphql,gql,ics,vcf,reg,inf" />
+                android:value="rs,py,pyi,pyw,c,cs,js,mjs,cjs,jsx,ts,mts,cts,tsx,json,jsonc,json5,jsonl,ndjson,geojson,webmanifest,har,md,markdown,mdx,mkd,mdown,sh,bash,zsh,ksh,ps1,psm1,psd1,go,java,swift,rb,rake,gemspec,php,phtml,cpp,cxx,cc,h,hpp,hxx,hh,ino,lua,html,htm,shtml,xht,vue,svelte,css,scss,yaml,yml,toml,ini,xml,svg,xhtml,xsl,xslt,xsd,wsdl,rss,atom,plist,csproj,vbproj,fsproj,props,targets,xaml,resx,kml,gpx,fxml,nuspec,config,sql,properties,bsl,as,adb,ads,ada,angelscript,apacheconf,htaccess,applescript,arcade,pde,arm,adoc,asciidoc,asc,aj,abnf,ahk,au3,awk,bnf,bas,bat,cmd,bf,cal,cls,capnp,ceylon,icl,dcl,clj,cljs,cljc,edn,cmake,coffee,cson,iced,crm,pcmk,cr,d,di,dart,pas,dpr,dfm,lpr,pp,dts,dtsi,diff,patch,jinja,j2,jinja2,djhtml,zone,dockerfile,dust,dst,ex,exs,elm,erb,erl,hrl,ebnf,fs,fsi,fsx,flix,f90,f95,f03,f08,f,for,f77,desktop,service,timer,socket,mount,target,gcode,gms,gss,feature,glsl,vert,frag,geom,gml,golo,gradle,graphql,gql,groovy,gvy,gy,haml,hbs,handlebars,mustache,hs,lhs,hx,hsp,http,hy,ni,i7x,asm,nasm,s,isbl,jl,kt,kts,ktm,lasso,tex,sty,ltx,bib,ldif,leaf,less,lisp,lsp,el,lc,ls,ll,lsl,mk,mak,make,wl,mma,wls,mac,mel,moo,rsc,mips,miz,ep,monkey,moon,n1ql,nt,nginxconf,nim,nims,nimble,nix,nsi,nsh,m,mm,ml,mli,scad,oxygene,pl,pm,pod,perl,pony,pgsql,pro,prolog,proto,pb,pbi,pycon,q,k,qml,r,rmd,re,rei,rib,rsl,sas,scala,sc,scm,ss,rkt,sci,sce,console,smali,st,sml,sig,sqf,stan,do,ado,stp,step,p21,styl,tcl,tk,tap,thrift,twig,vala,vapi,vbs,v,sv,svh,vhd,vhdl,vim,vimrc,vb,wat,wast,wren,xpp,xl,xq,xqm,xquery,xqy,zep,txt,text,log,cfg,conf,env,csv,tsv,tab,nfo,diz,srt,vtt,ass,rst,org,textile,lock,gitignore,gitattributes,gitmodules,editorconfig,dockerignore,npmignore,makefile,zig,tf,hcl,ics,vcf,reg,inf" />
         </activity>
 
         <!-- RestartActivity and the clipboard's FileProvider come from craft-activity's manifest. -->

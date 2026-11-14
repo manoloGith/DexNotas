@@ -308,16 +308,37 @@ fn menu_bar(app: &mut App, ui: &mut Ui) {
         });
         ui.menu_button(t("menu_language"), |ui| {
             let current = app.docs.get(app.active).and_then(|d| d.language);
-            egui::ScrollArea::vertical().max_height(480.0).show(ui, |ui| {
-                if ui.radio(current.is_none(), t("plain_text")).clicked() {
-                    a.push(Action::SetLanguage(None));
-                }
-                for l in LanguageId::ALL {
-                    if ui.radio(current == Some(l), l.label()).clicked() {
-                        a.push(Action::SetLanguage(Some(l)));
-                    }
-                }
-            });
+            if ui.radio(current.is_none(), t("plain_text")).clicked() {
+                a.push(Action::SetLanguage(None));
+            }
+            if let Some(l) = current {
+                let _ = ui.radio(true, l.label());
+            }
+            ui.separator();
+            // About 190 languages: one submenu per initial (A, B, C…; # for the rest).
+            for (initial, languages) in language_groups() {
+                let has_current = current.is_some_and(|c| languages.contains(&c));
+                // "A   ActionScript – AutoIt": what is inside without opening it.
+                let short = |l: &LanguageId| -> String {
+                    let name = l.label();
+                    if name.chars().count() > 14 { format!("{}…", name.chars().take(13).collect::<String>()) } else { name.to_owned() }
+                };
+                let range = match (languages.first(), languages.last()) {
+                    (Some(a), Some(b)) if languages.len() > 1 => format!("{} – {}", short(a), short(b)),
+                    (Some(a), _) => short(a),
+                    _ => String::new(),
+                };
+                let title = format!("{initial}   {range}{}", if has_current { "  •" } else { "" });
+                ui.menu_button(title, |ui| {
+                    egui::ScrollArea::vertical().max_height(520.0).show(ui, |ui| {
+                        for l in languages {
+                            if ui.radio(current == Some(*l), l.label()).clicked() {
+                                a.push(Action::SetLanguage(Some(*l)));
+                            }
+                        }
+                    });
+                });
+            }
         });
         ui.menu_button(t("menu_tools"), |ui| {
             ui.label(RichText::new("JSON").weak());
@@ -499,6 +520,24 @@ fn hits(app: &mut App, ui: &mut Ui) {
             app.focus_editor = true;
         }
     }
+}
+
+/// Every language by initial, in order (`#`: names that start with a digit or a symbol).
+fn language_groups() -> &'static [(char, Vec<LanguageId>)] {
+    static GROUPS: std::sync::OnceLock<Vec<(char, Vec<LanguageId>)>> = std::sync::OnceLock::new();
+    GROUPS.get_or_init(|| {
+        let mut groups: Vec<(char, Vec<LanguageId>)> = Vec::new();
+        for l in LanguageId::all() {
+            let first = l.label().chars().next().unwrap_or('#').to_ascii_uppercase();
+            let initial = if first.is_ascii_alphabetic() { first } else { '#' };
+            match groups.iter_mut().find(|(i, _)| *i == initial) {
+                Some((_, list)) => list.push(l),
+                None => groups.push((initial, vec![l])),
+            }
+        }
+        groups.sort_by_key(|(i, _)| if *i == '#' { ' ' } else { *i });
+        groups
+    })
 }
 
 /// The editor and the preview's places, and the handle between them.

@@ -1,0 +1,9 @@
+{
+  "name": "dexnotas-highlightjs",
+  "private": true,
+  "description": "Builds DexNotas' highlight.js bundle and language table (see build.sh).",
+  "devDependencies": {
+    "esbuild": "0.24.2",
+    "highlight.js": "11.12.0"
+  }
+}

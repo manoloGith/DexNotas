@@ -1,25 +1,28 @@
-//! Syntax highlighting with tree-sitter.
+//! Syntax highlighting: tree-sitter for 25 languages, highlight.js (`hljs`) for some 170 more.
 //!
 //! The languages, their detection and the grammar setup come from Notepad Studio
 //! (https://github.com/alesloa/notepad-studio, `src/syntax`, Apache-2.0, copyright the Notepad
 //! Studio contributors). The highlight loop and the colours are DexNotas'.
 
 mod grammars;
+pub mod hljs;
+mod hljs_langs;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
 /// A guard against a request far larger than the highlighting thread is ever given
 /// (`highlight::WHOLE_LIMIT`, or a window around the screen).
 pub const MAX_HIGHLIGHT_BYTES: usize = 32 * 1024 * 1024;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+/// A language: one of the tree-sitter grammars, or a highlight.js language (`Hljs`, an index in
+/// [`hljs::LANGS`]). Kept in the session by name (`rust`, `hljs:kotlin`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum LanguageId {
     Rust,
     Python,
@@ -46,11 +49,45 @@ pub enum LanguageId {
     Toml,
     Xml,
     Sql,
+    Hljs(u16),
+}
+
+impl Serialize for LanguageId {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.key())
+    }
+}
+
+impl<'de> Deserialize<'de> for LanguageId {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let key = String::deserialize(deserializer)?;
+        LanguageId::from_key(&key).ok_or_else(|| serde::de::Error::custom(format!("unknown language {key}")))
+    }
 }
 
 impl LanguageId {
+    /// The name kept in the session (the tree-sitter ones as they always were).
+    pub fn key(self) -> String {
+        match self {
+            Self::Hljs(i) => format!("hljs:{}", hljs::lang(i).map_or("", |l| l.id)),
+            Self::CSharp => "c_sharp".into(),
+            Self::JavaScript => "java_script".into(),
+            Self::TypeScript => "type_script".into(),
+            Self::PowerShell => "power_shell".into(),
+            other => other.label().to_ascii_lowercase().replace("c++", "cpp").replace("shell", "bash"),
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<LanguageId> {
+        if let Some(id) = key.strip_prefix("hljs:") {
+            return hljs::by_id(id).map(Self::Hljs);
+        }
+        Self::TREE_SITTER.into_iter().find(|l| l.key() == key)
+    }
+
     pub fn label(self) -> &'static str {
         match self {
+            Self::Hljs(i) => hljs::lang(i).map_or("?", |l| l.name),
             Self::Rust => "Rust",
             Self::Python => "Python",
             Self::C => "C",
@@ -79,8 +116,20 @@ impl LanguageId {
         }
     }
 
-    /// Every language, in the menu's (alphabetical) order.
-    pub const ALL: [LanguageId; 25] = [
+    /// Every language, in alphabetical order.
+    pub fn all() -> Vec<LanguageId> {
+        let mut all: Vec<LanguageId> = Self::TREE_SITTER.into_iter().chain((0..hljs::LANGS.len() as u16).map(Self::Hljs)).collect();
+        all.sort_by_cached_key(|l| l.label().to_lowercase());
+        all
+    }
+
+    /// Whether tree-sitter colours it (exact and fast); else highlight.js does.
+    pub fn is_tree_sitter(self) -> bool {
+        !matches!(self, Self::Hljs(_))
+    }
+
+    /// The languages with a tree-sitter grammar.
+    pub const TREE_SITTER: [LanguageId; 25] = [
         Self::Bash,
         Self::C,
         Self::CSharp,
@@ -111,6 +160,7 @@ impl LanguageId {
     /// The usual extension, for a new file's suggested name.
     pub fn extension(self) -> &'static str {
         match self {
+            Self::Hljs(i) => hljs::lang(i).and_then(|l| l.exts.first().copied()).unwrap_or("txt"),
             Self::Rust => "rs",
             Self::Python => "py",
             Self::C => "c",
@@ -142,6 +192,7 @@ impl LanguageId {
     /// The line comment, for Toggle comment (`None`: the language has only block comments).
     pub fn line_comment(self) -> Option<&'static str> {
         match self {
+            Self::Hljs(i) => hljs::lang(i).and_then(|l| l.comment),
             Self::Rust | Self::C | Self::CSharp | Self::JavaScript | Self::TypeScript | Self::Tsx | Self::Go
             | Self::Java | Self::Swift | Self::Php | Self::Cpp | Self::Scss | Self::Json => Some("//"),
             Self::Python | Self::Bash | Self::PowerShell | Self::Ruby | Self::Yaml | Self::Toml => Some("#"),
@@ -157,14 +208,22 @@ pub fn detect(path: Option<&Path>, text: &str) -> Option<LanguageId> {
 }
 
 pub fn language_for_path(path: &Path) -> Option<LanguageId> {
-    if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-        let lower = name.to_ascii_lowercase();
+    let name = path.file_name().and_then(|s| s.to_str()).map(str::to_ascii_lowercase);
+    if let Some(lower) = &name {
         if lower == "rakefile" || lower == "gemfile" {
             return Some(LanguageId::Ruby);
         }
+        if let Some(i) = hljs::by_file_name(lower) {
+            return Some(LanguageId::Hljs(i));
+        }
     }
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-    Some(match ext.as_str() {
+    tree_sitter_for_extension(&ext).or_else(|| hljs::by_extension(&ext).map(LanguageId::Hljs))
+}
+
+/// The tree-sitter language of an extension (lower case).
+fn tree_sitter_for_extension(ext: &str) -> Option<LanguageId> {
+    Some(match ext {
         "rs" => LanguageId::Rust,
         "py" | "pyi" | "pyw" => LanguageId::Python,
         "c" => LanguageId::C,
@@ -184,7 +243,7 @@ pub fn language_for_path(path: &Path) -> Option<LanguageId> {
         "cpp" | "cxx" | "cc" | "h" | "hpp" | "hxx" | "hh" | "ino" => LanguageId::Cpp,
         "lua" => LanguageId::Lua,
         "html" | "htm" | "shtml" | "xht" | "vue" | "svelte" => LanguageId::Html,
-        "css" | "less" => LanguageId::Css,
+        "css" => LanguageId::Css,
         "scss" => LanguageId::Scss,
         "yaml" | "yml" => LanguageId::Yaml,
         "toml" | "ini" => LanguageId::Toml,
@@ -217,7 +276,15 @@ pub fn language_for_shebang(content: &str) -> Option<LanguageId> {
     } else if line.contains("lua") {
         Some(LanguageId::Lua)
     } else {
-        None
+        ["perl", "tclsh", "awk", "julia", "elixir", "groovy", "kotlin", "scala", "rscript"]
+            .iter()
+            .find(|p| line.contains(*p))
+            .and_then(|p| hljs::by_alias(match *p {
+                "tclsh" => "tcl",
+                "rscript" => "r",
+                other => other,
+            }))
+            .map(LanguageId::Hljs)
     }
 }
 
@@ -297,6 +364,9 @@ pub fn highlight(language: LanguageId, source: &str) -> Vec<(Range<usize>, Kind)
     if source.len() > MAX_HIGHLIGHT_BYTES {
         return Vec::new();
     }
+    if let LanguageId::Hljs(i) = language {
+        return hljs::highlight(i, source);
+    }
     HIGHLIGHTER.with(|highlighter| {
         CONFIGS.with(|configs| {
             let (Ok(mut highlighter), Ok(mut configs)) = (highlighter.try_borrow_mut(), configs.try_borrow_mut()) else {
@@ -374,7 +444,7 @@ mod tests {
             (LanguageId::Xml, "<a b=\"c\">d</a>"),
             (LanguageId::Sql, "SELECT 1 FROM t; -- c"),
         ];
-        assert_eq!(samples.len(), LanguageId::ALL.len());
+        assert_eq!(samples.len(), LanguageId::TREE_SITTER.len());
         for (language, source) in samples {
             assert!(!highlight(*language, source).is_empty(), "{language:?}");
         }
@@ -408,6 +478,7 @@ mod declared_extensions {
         let declared: Vec<&str> = value.split(',').map(str::trim).collect();
         let source = include_str!("mod.rs");
         let start = source.find("pub fn language_for_path").unwrap_or(0);
+        let start = source[start..].find("fn tree_sitter_for_extension").map_or(start, |e| start + e);
         let end = source[start..].find("\n}\n").map_or(source.len(), |e| start + e);
         let missing: Vec<&str> = source[start..end]
             .split('"')
@@ -417,8 +488,34 @@ mod declared_extensions {
             .filter(|e| !declared.contains(e))
             .collect();
         assert!(missing.is_empty(), "not declared in AndroidManifest.xml: {missing:?}");
+        let missing: Vec<&str> = super::hljs::LANGS.iter().flat_map(|l| l.exts.iter().copied()).filter(|e| !declared.contains(e)).collect();
+        assert!(missing.is_empty(), "highlight.js extensions not declared in AndroidManifest.xml: {missing:?}");
         let mut seen = std::collections::HashSet::new();
         let repeated: Vec<&&str> = declared.iter().filter(|e| !seen.insert(**e)).collect();
         assert!(repeated.is_empty(), "declared twice: {repeated:?}");
+    }
+}
+
+#[cfg(test)]
+mod keys {
+    use super::LanguageId;
+
+    /// Sessions written before highlight.js keep their languages.
+    #[test]
+    fn keys_are_stable() {
+        let keys: Vec<String> = LanguageId::TREE_SITTER.iter().map(|l| l.key()).collect();
+        let expected = [
+            "bash", "c", "c_sharp", "cpp", "css", "go", "html", "java", "java_script", "json", "lua", "markdown", "php",
+            "power_shell", "python", "ruby", "rust", "scss", "sql", "swift", "toml", "tsx", "type_script", "xml", "yaml",
+        ];
+        assert_eq!(keys, expected);
+        for l in LanguageId::all() {
+            assert_eq!(LanguageId::from_key(&l.key()), Some(l), "{}", l.key());
+            let json = serde_json::to_string(&l).unwrap_or_default();
+            assert_eq!(serde_json::from_str::<LanguageId>(&json).ok(), Some(l));
+        }
+        assert_eq!(LanguageId::all().len(), 25 + super::hljs::LANGS.len());
+        assert_eq!(super::language_for_path(std::path::Path::new("a/Main.kt")).map(LanguageId::label), Some("Kotlin"));
+        assert_eq!(super::language_for_path(std::path::Path::new("Dockerfile")).map(LanguageId::label), Some("Dockerfile"));
     }
 }

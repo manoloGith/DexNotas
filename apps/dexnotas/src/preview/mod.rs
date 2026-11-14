@@ -174,7 +174,7 @@ pub fn code_language(info: &str) -> Option<LanguageId> {
         "svg" | "xsl" => "xml",
         other => other,
     };
-    crate::syntax::language_for_path(Path::new(&format!("x.{ext}")))
+    crate::syntax::language_for_path(Path::new(&format!("x.{ext}"))).or_else(|| crate::syntax::hljs::by_alias(word).map(LanguageId::Hljs))
 }
 
 fn percent_decode(s: &str) -> String {

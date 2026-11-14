@@ -75,6 +75,17 @@ para copiarlo.
       línea se ve partido; Formatear JSON funciona.
 - [ ] Toque/clic simple y doble clic seleccionan bien (en el móvil, un toque mueve el cursor).
 
+Lenguajes de highlight.js:
+
+- [ ] Abrir .kt, .dart, .hs, .ex, .scala, .r, .pl, .f90, .vhd, Dockerfile, Makefile, nginx.conf,
+      .tex, .diff: colores correctos y el nombre del lenguaje en la barra de estado.
+- [ ] Menú Lenguaje: letras A–Z con el rango de cada una; la del lenguaje actual lleva «•»;
+      elegir uno lo aplica; Texto plano lo quita.
+- [ ] Un archivo de 1–2 MB de uno de estos lenguajes: se colorea lo que se ve y escribir no
+      se traba.
+- [ ] Ctrl+/ comenta con el comentario de ese lenguaje (// en Kotlin, # en R, % en LaTeX…).
+- [ ] En un .md, un bloque ```kotlin o ```haskell sale con colores en la vista previa.
+
 ## 8. Formatear y validar
 
 - [ ] JSON en una línea → Herramientas ▸ Formatear JSON (Ctrl+Alt+J); Compactar; Ctrl+Z lo

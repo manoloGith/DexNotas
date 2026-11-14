@@ -42,6 +42,8 @@ toml = "0.9"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 egui_extras = { version = "0.37", default-features = false, features = ["image", "file"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp"] }
+# highlight.js (the bundle in assets/highlightjs) runs in QuickJS.
+rquickjs = { version = "0.11", default-features = false }
 craft-android = { path = "../../craft-android/crates/craft-android" }
 
 # Syntax highlighting with tree-sitter: the grammars Notepad Studio uses
@@ -79,6 +81,8 @@ rfd = { version = "0.15", optional = true }
 [target.'cfg(target_os = "android")'.dependencies]
 eframe = { version = "0.37", default-features = false, features = ["android-game-activity"] }
 jni = "0.22.4"
+# QuickJS ships no bindings for Android: they are generated (bindgen, with the NDK's clang).
+rquickjs = { version = "0.11", default-features = false, features = ["bindgen"] }
 
 [dev-dependencies]
 tempfile = "3"

@@ -14,9 +14,10 @@ reapertura fiables y un informe de diagnóstico que se copia sin adb.
   después de cada cambio y al perder el foco. Opcionalmente, también los archivos.
 - **Buscar y reemplazar**: texto o expresión regular, mayúsculas, palabra completa, grupos `$1` al
   reemplazar, todas las coincidencias marcadas, buscar en todas las pestañas, ir a línea.
-- **Resaltado de 25 lenguajes** con tree-sitter (las gramáticas de
-  [Notepad Studio](https://github.com/alesloa/notepad-studio)), detectados por la extensión o por
-  `#!`, y elegibles a mano.
+- **Resaltado de unos 195 lenguajes**: 25 con tree-sitter (las gramáticas de
+  [Notepad Studio](https://github.com/alesloa/notepad-studio)) y 169 más con
+  [highlight.js](https://github.com/highlightjs/highlight.js) ejecutado con QuickJS; detectados por
+  la extensión, el nombre del archivo o `#!`, y elegibles a mano en el menú Lenguaje (por iniciales).
 - **Formatear**: JSON y XML/HTML/SVG (formatear, compactar, validar); YAML y TOML (validar), con
   la línea del error.
 - **Vista previa de Markdown y HTML**: en doble panel (lado a lado, o arriba y abajo en una
@@ -31,7 +32,7 @@ reapertura fiables y un informe de diagnóstico que se copia sin adb.
   nombre y atajo Ctrl+Alt+1…9.
 - **Edición**: números de línea, línea actual, ajuste de línea, zoom, comentar, duplicar, eliminar
   y ordenar líneas, mayúsculas/minúsculas, sangría con Tab/Mayús+Tab, mantener la sangría.
-- **Ecosistema Dex**: DexFiles la pone como app predeterminada para unas 190 extensiones de
+- **Ecosistema Dex**: DexFiles la pone como app predeterminada para unas 350 extensiones de
   texto y código, y aparece siempre en «Abrir con», para cualquier archivo; «Compartir» desde
   otras apps.
 
@@ -50,7 +51,8 @@ DexNotas/
 │   ├── src/format.rs       JSON, XML, YAML, TOML
 │   ├── src/edit_ops.rs     operaciones del menú Editar
 │   ├── src/macros.rs       grabar y reproducir
-│   ├── src/syntax/         resaltado (tree-sitter)
+│   ├── src/syntax/         resaltado (tree-sitter y highlight.js)
+│   ├── assets/highlightjs/ highlight.js empaquetado (tools/highlightjs/build.sh lo rehace)
 │   ├── src/preview/        Markdown y HTML para la vista previa
 │   ├── src/ui/             la interfaz egui
 │   ├── src/android.rs      android_main y el puente con MainActivity
