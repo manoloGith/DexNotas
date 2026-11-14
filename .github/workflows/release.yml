@@ -3,7 +3,8 @@ name: Release
 # Push a tag like v0.1.0, or run this workflow by hand (it then tags the commit it runs on with
 # the version in gradle.properties), to build the release APK and publish it as a GitHub release.
 # With the repository secrets DEXNOTAS_KEYSTORE_BASE64, DEXNOTAS_KEYSTORE_PASSWORD and
-# DEXNOTAS_KEY_ALIAS the APK is signed with the release key; without them it is signed with a debug
+# DEXNOTAS_KEY_ALIAS (or DexPdfCraft's DEXPDFCRAFT_* ones, to share its key) the APK is signed
+# with the release key; without them it is signed with a debug
 # key and published as a pre-release. A tag with a suffix (v0.1.0-beta.1) is always a pre-release:
 # the APK's version is the part before the suffix, and its notes are that version's. Run by hand,
 # the `suffix` input gives the same.
@@ -63,9 +64,10 @@ jobs:
       - name: Release key
         id: key
         env:
-          KEYSTORE_BASE64: ${{ secrets.DEXNOTAS_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.DEXNOTAS_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.DEXNOTAS_KEY_ALIAS }}
+          # DexNotas' own key, or the Dex family's (the same secrets as DexPdfCraft's, by name).
+          KEYSTORE_BASE64: ${{ secrets.DEXNOTAS_KEYSTORE_BASE64 || secrets.DEXPDFCRAFT_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.DEXNOTAS_KEYSTORE_PASSWORD || secrets.DEXPDFCRAFT_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.DEXNOTAS_KEY_ALIAS || secrets.DEXPDFCRAFT_KEY_ALIAS }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             # Pasted secrets may carry spaces or line breaks: drop them.
