@@ -30,6 +30,8 @@ reapertura fiables y un informe de diagnóstico que se copia sin adb.
   otras páginas de códigos; reabrir con otra, convertir, fin de línea CRLF/LF/CR.
 - **Macros**: grabar (Ctrl+Mayús+R), reproducir una vez, N veces o hasta el final, guardarlas con
   nombre y atajo Ctrl+Alt+1…9.
+- **Plegado de código**: − y + en el margen para contraer y expandir funciones y bloques (por
+  sangría, en cualquier lenguaje); Ctrl+Alt+F / Ctrl+Alt+Mayús+F, Alt+0 / Alt+Mayús+0 para todo.
 - **Edición**: números de línea, línea actual, ajuste de línea, zoom, comentar, duplicar, eliminar
   y ordenar líneas, mayúsculas/minúsculas, sangría con Tab/Mayús+Tab, mantener la sangría.
 - **Ecosistema Dex**: DexFiles la pone como app predeterminada para unas 350 extensiones de

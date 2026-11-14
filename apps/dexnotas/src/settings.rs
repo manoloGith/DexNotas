@@ -26,6 +26,8 @@ pub struct Settings {
     pub preview_split: f32,
     /// The preview is a web page (Android's WebView: CSS and JavaScript) where there is one.
     pub preview_web: bool,
+    /// The − and + that fold regions of code.
+    pub folding: bool,
 }
 
 impl Default for Settings {
@@ -43,6 +45,7 @@ impl Default for Settings {
             autosave_files: false,
             preview_split: 0.5,
             preview_web: true,
+            folding: true,
         }
     }
 }

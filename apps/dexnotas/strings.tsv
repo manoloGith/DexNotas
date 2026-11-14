@@ -143,3 +143,9 @@ preview_halves	Panels at half	Paneles a la mitad
 preview_hint	The preview is for Markdown and HTML	La vista previa es para Markdown y HTML
 link_not_found	Not found: {}	No se encuentra: {}
 preview_web	Web engine (CSS and JavaScript)	Motor web (CSS y JavaScript)
+folding	Fold markers (− and +)	Marcas de plegado (− y +)
+fold_menu	Folding	Plegado
+fold_here	Fold region	Plegar región
+unfold_here	Unfold region	Desplegar región
+fold_all	Fold all	Plegar todo
+unfold_all	Unfold all	Desplegar todo

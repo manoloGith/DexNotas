@@ -10,6 +10,8 @@
 //!   never needed.
 //! - Input (keys, text, paste, the on-screen keyboard's composition, the mouse) is handled here
 //!   and goes into the buffer as undoable edits.
+//! - Regions can be folded (`folding`): the − and + in the gutter hide and show them, and every
+//!   walk from line to line skips the hidden ones.
 
 use std::ops::Range;
 use std::sync::Arc;
@@ -18,6 +20,7 @@ use std::time::{Duration, Instant};
 use egui::text::{CCursor, LayoutJob, TextFormat};
 use egui::{Align2, Color32, CursorIcon, Event, FontId, Galley, Id, Key, Pos2, Rect, Sense, Stroke, Ui, Vec2, pos2, vec2};
 
+use super::folding::{self, Folds};
 use super::theme::{self, Palette};
 use crate::buffer::Group;
 use crate::document::Document;
@@ -52,6 +55,10 @@ pub struct View {
     had_focus: bool,
     /// Dragging a scroll bar: (vertical, where the drag started, the scroll it started at).
     bar_drag: Option<(bool, f32, f32)>,
+    /// Folded regions.
+    pub folds: Folds,
+    /// The "…" after each folded line last painted (clicking one opens it), and its line.
+    fold_pills: Vec<(Rect, usize)>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -80,6 +87,8 @@ pub struct Look {
     pub indent_width: usize,
     pub auto_indent: bool,
     pub line_comment: Option<&'static str>,
+    /// Show the − and + that fold regions.
+    pub folding: bool,
 }
 
 /// Requests for this frame.
@@ -106,6 +115,65 @@ pub struct Output {
 
 pub fn editor_id(doc: u64) -> Id {
     Id::unique(("dexnotas-editor", doc))
+}
+
+/// If the cursor is inside a folded region, open it.
+fn unfold_at_cursor_line(doc: &mut Document) {
+    if doc.view.folds.is_empty() {
+        return;
+    }
+    let rope = doc.buffer.rope();
+    let line = rope.char_to_line(doc.cursor.1.min(rope.len_chars()));
+    let rope = rope.clone();
+    doc.view.folds.reveal(&rope, line);
+}
+
+/// After folding: a cursor left inside the hidden lines goes to the end of the folded line.
+fn cursor_out_of_folds(doc: &mut Document) {
+    let rope = doc.buffer.rope();
+    let line = rope.char_to_line(doc.cursor.1.min(rope.len_chars()));
+    if doc.view.folds.hidden(line) {
+        let header = doc.view.folds.shown(line);
+        let end = rope.line_to_char(header) + rope.line(header).len_chars().saturating_sub(1);
+        doc.cursor = (end, end);
+        doc.view.preferred_x = None;
+    }
+}
+
+/// Fold or open the region `line` starts.
+pub fn toggle_fold(doc: &mut Document, line: usize) {
+    doc.view.folds.sync(&doc.buffer);
+    let rope = doc.buffer.rope().clone();
+    doc.view.folds.toggle(&rope, line);
+    cursor_out_of_folds(doc);
+}
+
+/// Fold the region around the cursor (Ctrl+Shift+[).
+pub fn fold_at_cursor(doc: &mut Document) {
+    doc.view.folds.sync(&doc.buffer);
+    let rope = doc.buffer.rope().clone();
+    let line = rope.char_to_line(doc.cursor.1.min(rope.len_chars()));
+    doc.view.folds.fold_around(&rope, line);
+    cursor_out_of_folds(doc);
+}
+
+/// Open the fold on the cursor's line (Ctrl+Shift+]).
+pub fn unfold_at_cursor(doc: &mut Document) {
+    doc.view.folds.sync(&doc.buffer);
+    let rope = doc.buffer.rope().clone();
+    let line = rope.char_to_line(doc.cursor.1.min(rope.len_chars()));
+    doc.view.folds.unfold(&rope, line);
+}
+
+pub fn fold_all(doc: &mut Document) {
+    doc.view.folds.sync(&doc.buffer);
+    let rope = doc.buffer.rope().clone();
+    doc.view.folds.fold_all(&rope);
+    cursor_out_of_folds(doc);
+}
+
+pub fn unfold_all(doc: &mut Document) {
+    doc.view.folds.clear();
 }
 
 /// A piece of a line, laid out.
@@ -359,7 +427,7 @@ fn visible(l: &Layout<'_>, view: &View, height: f32, width: f32) -> Vec<LineView
         lv.top = y;
         y += lv.height;
         out.push(lv);
-        line += 1;
+        line = view.folds.next(line);
     }
     out
 }
@@ -368,22 +436,24 @@ fn visible(l: &Layout<'_>, view: &View, height: f32, width: f32) -> Vec<LineView
 fn scroll_by(l: &Layout<'_>, view: &mut View, dy: f32) {
     let lines = l.doc.buffer.rope().len_lines();
     let mut offset = view.top_offset + dy;
-    let mut line = view.top_line.min(lines.saturating_sub(1));
-    while offset < 0.0 && line > 0 {
-        line -= 1;
+    let mut line = view.folds.shown(view.top_line.min(lines.saturating_sub(1)));
+    while offset < 0.0
+        && let Some(prev) = view.folds.prev(line)
+    {
+        line = prev;
         offset += l.height(line);
     }
-    while line + 1 < lines {
+    while view.folds.next(line) < lines {
         let h = l.height(line);
         if offset < h {
             break;
         }
         offset -= h;
-        line += 1;
+        line = view.folds.next(line);
     }
     view.top_line = line;
     view.top_offset = offset.max(0.0);
-    if line + 1 >= lines {
+    if view.folds.next(line) >= lines {
         view.top_offset = view.top_offset.min((l.height(line) - l.row_height).max(0.0));
     }
 }
@@ -420,11 +490,13 @@ fn reveal(l: &Layout<'_>, view: &mut View, at: usize, how: Reveal, height: f32, 
                         break;
                     }
                     acc += l.height(probe);
-                    probe += 1;
+                    probe = view.folds.next(probe);
                 }
                 if !found {
-                    while first > 0 && y < height {
-                        first -= 1;
+                    while y < height
+                        && let Some(prev) = view.folds.prev(first)
+                    {
+                        first = prev;
                         y += l.height(first);
                     }
                     view.top_line = first;
@@ -550,8 +622,8 @@ fn vertical(l: &Layout<'_>, at: usize, rows: isize, x: f32) -> usize {
         if left > 0 {
             if row + 1 < lv.row_count(l) {
                 row += 1;
-            } else if line + 1 < lines {
-                line += 1;
+            } else if l.doc.view.folds.next(line) < lines {
+                line = l.doc.view.folds.next(line);
                 lv = l.lay(line, None);
                 row = 0;
             } else {
@@ -561,8 +633,8 @@ fn vertical(l: &Layout<'_>, at: usize, rows: isize, x: f32) -> usize {
         } else {
             if row > 0 {
                 row -= 1;
-            } else if line > 0 {
-                line -= 1;
+            } else if let Some(prev) = l.doc.view.folds.prev(line) {
+                line = prev;
                 lv = l.lay(line, None);
                 row = lv.row_count(l) - 1;
             } else {
@@ -585,7 +657,18 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
     let row_height = ctx.fonts_mut(|f| f.row_height(&look.font));
     let char_width = ctx.fonts_mut(|f| f.glyph_width(&look.font, '0'));
     let lines_total = doc.buffer.rope().len_lines();
-    let gutter_width = if look.line_numbers { (lines_total.to_string().len().max(2) as f32) * char_width + 18.0 } else { 6.0 };
+    // Follow the edits with the folds; the top of the view is never a hidden line.
+    doc.view.folds.sync(&doc.buffer);
+    if !doc.view.folds.is_empty() {
+        let shown = doc.view.folds.shown(doc.view.top_line);
+        if shown != doc.view.top_line {
+            doc.view.top_line = shown;
+            doc.view.top_offset = 0.0;
+        }
+    }
+    let fold_width = if look.folding { (char_width * 2.0).max(16.0).round() } else { 0.0 };
+    let numbers_width = if look.line_numbers { (lines_total.to_string().len().max(2) as f32) * char_width + 18.0 } else { 6.0 };
+    let gutter_width = numbers_width + fold_width;
     let gutter = Rect::from_min_size(full.min, vec2(gutter_width, full.height()));
     let hbar = !look.wrap;
     let text_rect = Rect::from_min_max(
@@ -615,6 +698,7 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
         doc.cursor = (a.min(len), b.min(len));
         doc.view.reveal = Some(Reveal::Center);
         doc.view.preferred_x = None;
+        unfold_at_cursor_line(doc);
     }
 
     // ── keyboard and text ─────────────────────────────────────────────────────────────────
@@ -660,6 +744,9 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
         for op in ops {
             changed |= apply(doc, op, look, &ctx, row_height, char_width, wrap, palette, height, &mut indent_request);
         }
+        // The cursor never stays inside a folded region (moving into one opens it).
+        doc.view.folds.sync(&doc.buffer);
+        unfold_at_cursor_line(doc);
     }
 
     // ── mouse ─────────────────────────────────────────────────────────────────────────────
@@ -681,7 +768,26 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
                 .filter(|e| matches!(e, Event::PointerButton { button: egui::PointerButton::Primary, pressed: true, .. }))
                 .count()
         });
+        // A click on a − or + in the gutter, or on the "…" after a folded line.
+        let in_fold_column = |p: Pos2| look.folding && p.x >= gutter.right() - fold_width && p.x < gutter.right() && p.y >= text_rect.top();
+        let mut fold_click = None;
         if presses > 0
+            && (response.contains_pointer() || response.clicked())
+            && let Some(p) = pointer
+        {
+            if let Some((_, line)) = doc.view.fold_pills.iter().find(|(r, _)| r.contains(p)) {
+                fold_click = Some(*line);
+            } else if in_fold_column(p) {
+                let y = p.y - text_rect.top();
+                if let Some(lv) = lines.iter().find(|lv| y >= lv.top && y < lv.top + lv.height)
+                    && (doc.view.folds.is_folded(lv.line) || folding::foldable(doc.buffer.rope(), lv.line))
+                {
+                    fold_click = Some(lv.line);
+                }
+            }
+        }
+        if presses > 0
+            && fold_click.is_none()
             && (response.is_pointer_button_down_on() || response.contains_pointer() || response.clicked())
             && let Some(p) = pointer
             && on_text(p)
@@ -737,6 +843,9 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
         drop(l);
         doc.view.drag = drag;
         doc.view.clicks = clicks;
+        if let Some(line) = fold_click {
+            toggle_fold(doc, line);
+        }
         if let Some(sel) = set_cursor {
             if sel != doc.cursor {
                 doc.cursor = sel;
@@ -789,6 +898,12 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
     let head_line = rope.char_to_line(head);
     let mut cursor_rect = None;
     let mut widest: f32 = 0.0;
+    let mut pills: Vec<(Rect, usize)> = Vec::new();
+    // The line whose − or + is under the pointer (brighter).
+    let fold_hover = ui.input(|i| i.pointer.hover_pos()).filter(|p| look.folding && p.x >= gutter.right() - fold_width && p.x < gutter.right()).and_then(|p| {
+        let y = p.y - text_rect.top();
+        lines.iter().find(|lv| y >= lv.top && y < lv.top + lv.height).map(|lv| lv.line)
+    });
 
     // Find matches on screen (bytes).
     let mut marks: Vec<Range<usize>> = Vec::new();
@@ -862,7 +977,34 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
         if look.line_numbers {
             let color = if lv.line == head_line { palette.gutter_current } else { palette.gutter_text };
             let gp = ui.painter_at(gutter);
-            gp.text(pos2(gutter.right() - 8.0, top), Align2::RIGHT_TOP, (lv.line + 1).to_string(), look.font.clone(), color);
+            gp.text(pos2(gutter.right() - fold_width - 8.0, top), Align2::RIGHT_TOP, (lv.line + 1).to_string(), look.font.clone(), color);
+        }
+        // Folding: − on a region's first line, + on a folded one, and "…" after it.
+        if look.folding {
+            let folded = doc.view.folds.is_folded(lv.line);
+            if folded || folding::foldable(rope, lv.line) {
+                let size = (row_height * 0.7).round().min(fold_width - 4.0);
+                let center = pos2(gutter.right() - fold_width / 2.0 - 1.0, top + row_height / 2.0);
+                let r = Rect::from_center_size(center, vec2(size, size));
+                let gp = ui.painter_at(gutter);
+                let color = if folded || fold_hover == Some(lv.line) { palette.gutter_current } else { palette.gutter_text.gamma_multiply(0.8) };
+                let stroke = Stroke::new(1.2, color);
+                gp.rect_stroke(r, 2.0, stroke, egui::StrokeKind::Inside);
+                let arm = size * 0.28;
+                gp.hline((center.x - arm)..=(center.x + arm), center.y, stroke);
+                if folded {
+                    gp.vline(center.x, (center.y - arm)..=(center.y + arm), stroke);
+                }
+            }
+            if folded {
+                let end = lv.pos_of(lv.len, &l);
+                let pill = Rect::from_min_size(pos2(origin.x + end.x + char_width, top + end.y + row_height * 0.15), vec2(char_width * 3.0, row_height * 0.7));
+                text_painter.rect_filled(pill, row_height * 0.35, palette.gutter_text.gamma_multiply(0.3));
+                for k in [-1.0, 0.0, 1.0] {
+                    text_painter.circle_filled(pill.center() + vec2(k * char_width * 0.7, 0.0), (row_height * 0.06).max(1.2), palette.text);
+                }
+                pills.push((pill, lv.line));
+            }
         }
     }
 
@@ -893,6 +1035,7 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
     };
     drop(lines);
     drop(l);
+    doc.view.fold_pills = pills;
     // The widest line on screen sets how far the view scrolls sideways.
     doc.view.widest = widest;
     if wrap.is_none() {
@@ -908,7 +1051,9 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, requests: Requests) ->
         ctx.output_mut(|o| o.ime = Some(egui::output::IMEOutput::new(id, doc.view.ime_generation, egui::IMEPurpose::Normal, text_rect, c)));
     }
     if response.hovered() {
-        ctx.set_cursor_icon(CursorIcon::Text);
+        let on_pill = ui.input(|i| i.pointer.hover_pos()).is_some_and(|p| doc.view.fold_pills.iter().any(|(r, _)| r.contains(p)));
+        let on_marker = fold_hover.is_some_and(|line| doc.view.folds.is_folded(line) || folding::foldable(doc.buffer.rope(), line));
+        ctx.set_cursor_icon(if on_pill || on_marker { CursorIcon::PointingHand } else { CursorIcon::Text });
     }
     ui.advance_cursor_after_rect(full);
     Output { changed, focused, visible_bytes, indent: indent_request }

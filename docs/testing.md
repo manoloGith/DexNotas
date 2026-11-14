@@ -63,6 +63,17 @@ para copiarlo.
 - [ ] «En todas las pestañas» (Ctrl+Mayús+F): lista abajo; un clic lleva a la línea.
 - [ ] Ctrl+G: ir a una línea.
 
+## 6b. Plegado de código
+
+- [ ] En un .py, .kt o .rs aparece − junto a las funciones y bloques (if, for, clases…); un clic
+      lo pliega: + en su lugar, «…» tras la línea y los números saltan las líneas ocultas.
+- [ ] Clic en + o en «…» lo despliega.
+- [ ] Ctrl+Alt+F pliega el bloque del cursor; Ctrl+Alt+Mayús+F lo despliega; Alt+0 pliega todo
+      (también los anidados) y Alt+Mayús+0 lo despliega todo, sin escribir nada.
+- [ ] Con un bloque plegado: flechas arriba/abajo lo saltan; escribir encima o debajo no lo abre;
+      ir a una línea oculta (Ctrl+G, buscar) lo abre.
+- [ ] Ver ▸ Marcas de plegado oculta y muestra la columna de − y +.
+
 ## 7. Resaltado
 
 - [ ] Abrir .py, .rs, .js, .json, .xml, .html, .css, .md, .sql, .sh, .yaml: colores correctos.

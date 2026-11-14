@@ -237,6 +237,21 @@ fn menu_bar(app: &mut App, ui: &mut Ui) {
             check(ui, &mut app.settings.word_wrap, t("word_wrap"));
             check(ui, &mut app.settings.line_numbers, t("line_numbers"));
             check(ui, &mut app.settings.highlight_line, t("highlight_line"));
+            check(ui, &mut app.settings.folding, t("folding"));
+            ui.menu_button(t("fold_menu"), |ui| {
+                if item(ui, t("fold_here"), "Ctrl+Alt+F") {
+                    a.push(Action::Fold(super::FoldCmd::Here));
+                }
+                if item(ui, t("unfold_here"), "Ctrl+Alt+Shift+F") {
+                    a.push(Action::Fold(super::FoldCmd::OpenHere));
+                }
+                if item(ui, t("fold_all"), "Alt+0") {
+                    a.push(Action::Fold(super::FoldCmd::All));
+                }
+                if item(ui, t("unfold_all"), "Alt+Shift+0") {
+                    a.push(Action::Fold(super::FoldCmd::OpenAll));
+                }
+            });
             check(ui, &mut app.settings.dark, t("dark_theme"));
             ui.separator();
             let doc = app.docs.get(app.active);
@@ -608,6 +623,7 @@ fn editor(app: &mut App, ui: &mut Ui) {
         indent_width: app.settings.indent_width,
         auto_indent: app.settings.auto_indent,
         line_comment,
+        folding: app.settings.folding,
     };
     let marks = if app.find.open && !app.find.query.pattern.is_empty() { app.find.query.compile().ok() } else { None };
     app.update_match_count();

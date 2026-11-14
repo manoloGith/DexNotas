@@ -1,6 +1,7 @@
 //! The window: menus, tabs, the find bar, the editor and the status bar, and everything they do.
 
 pub mod code_editor;
+mod folding;
 mod menus;
 pub mod preview;
 mod webview;
@@ -71,6 +72,17 @@ pub enum Action {
     FollowLink(String),
     /// The preview as a web page (CSS and JavaScript) or drawn by the app.
     ToggleWebPreview,
+    /// Fold or open regions of code.
+    Fold(FoldCmd),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FoldCmd {
+    /// The region at the cursor.
+    Here,
+    OpenHere,
+    All,
+    OpenAll,
 }
 
 /// A window over the editor.
@@ -485,6 +497,20 @@ impl App {
             }
         };
         let mut out = Vec::new();
+        // Folding (Notepad++'s keys, and VS Code's brackets where the keyboard has them). The
+        // keys with Shift or Alt go first: a shortcut without them also matches one with them
+        // (Ctrl+F would take Ctrl+Alt+F).
+        push(Action::Fold(FoldCmd::OpenHere), shortcut(CTRL_ALT | Modifiers::SHIFT, Key::F), ctx, &mut out);
+        push(Action::Fold(FoldCmd::Here), shortcut(CTRL_ALT, Key::F), ctx, &mut out);
+        let before = out.len();
+        push(Action::Fold(FoldCmd::OpenAll), shortcut(Modifiers::ALT | Modifiers::SHIFT, Key::Num0), ctx, &mut out);
+        push(Action::Fold(FoldCmd::All), shortcut(Modifiers::ALT, Key::Num0), ctx, &mut out);
+        if out.len() > before {
+            // Alt+0 also types its character on some systems: it is not text here.
+            ctx.input_mut(|i| i.events.retain(|e| !matches!(e, egui::Event::Text(_))));
+        }
+        push(Action::Fold(FoldCmd::Here), shortcut(CTRL_SHIFT, Key::OpenBracket), ctx, &mut out);
+        push(Action::Fold(FoldCmd::OpenHere), shortcut(CTRL_SHIFT, Key::CloseBracket), ctx, &mut out);
         push(Action::SaveAs, shortcut(CTRL_SHIFT, Key::S), ctx, &mut out);
         push(Action::Save, shortcut(CTRL, Key::S), ctx, &mut out);
         push(Action::New, shortcut(CTRL, Key::N), ctx, &mut out);
@@ -745,6 +771,17 @@ impl App {
                 self.set_preview(if mode == crate::preview::Mode::Off { crate::preview::Mode::Split } else { crate::preview::Mode::Off });
             }
             Action::FollowLink(link) => self.follow_link(&link),
+            Action::Fold(cmd) => {
+                if let Some(d) = self.doc_mut() {
+                    match cmd {
+                        FoldCmd::Here => code_editor::fold_at_cursor(d),
+                        FoldCmd::OpenHere => code_editor::unfold_at_cursor(d),
+                        FoldCmd::All => code_editor::fold_all(d),
+                        FoldCmd::OpenAll => code_editor::unfold_all(d),
+                    }
+                }
+                self.focus_editor = true;
+            }
             Action::ToggleWebPreview => {
                 self.settings.preview_web = !self.settings.preview_web;
                 if !self.settings.preview_web {
