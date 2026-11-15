@@ -1,0 +1,1 @@
+Tabs and their text survive updates; session, settings and macros in Android backup.
