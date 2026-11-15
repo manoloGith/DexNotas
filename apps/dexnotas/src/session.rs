@@ -4,6 +4,11 @@
 //! A tab whose file is saved keeps only its path; a new or changed one also keeps its text
 //! (`session/<id>.txt`), so nothing typed is lost when the app is closed, killed by the system
 //! or by DeX's close button, which an app cannot intercept.
+//!
+//! The session must survive updates of the app: it is read tab by tab, and what a version does not
+//! understand (a language, an encoding, a field) is left at its default instead of losing the
+//! tab; the last session that read well is kept as `session.bak.json`; and if neither can be read,
+//! the texts in `session/` come back as tabs.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -30,12 +35,16 @@ pub struct TabEntry {
     pub id: u64,
     pub path: Option<PathBuf>,
     pub untitled: Option<u32>,
+    #[serde(default)]
     pub format: Format,
+    #[serde(default, deserialize_with = "lenient_language")]
     pub language: Option<LanguageId>,
     #[serde(default)]
     pub language_chosen: bool,
+    #[serde(default)]
     pub saved_hash: u64,
     /// The text is in `session/<id>.txt` (a new or changed document).
+    #[serde(default)]
     pub stored: bool,
     #[serde(default)]
     pub cursor: (usize, usize),
@@ -44,13 +53,63 @@ pub struct TabEntry {
     pub preview: crate::preview::Mode,
 }
 
+/// A language this version doesn't know (written by a newer or older one) is plain text, not an
+/// unreadable session.
+fn lenient_language<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<LanguageId>, D::Error> {
+    let value = serde_json::Value::deserialize(d)?;
+    Ok(value.as_str().and_then(LanguageId::from_key))
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SessionFile {
     pub tabs: Vec<TabEntry>,
+    #[serde(default)]
     pub active: usize,
+    #[serde(default)]
     pub next_untitled: u32,
     #[serde(default)]
     pub recent: Vec<PathBuf>,
+}
+
+/// A tab entry whatever it holds: as much of it as can be read, if at least its id.
+fn tab_from(value: &serde_json::Value) -> Option<TabEntry> {
+    if let Ok(tab) = serde_json::from_value::<TabEntry>(value.clone()) {
+        return Some(tab);
+    }
+    let o = value.as_object()?;
+    let field = |k: &str| o.get(k).cloned().unwrap_or(serde_json::Value::Null);
+    Some(TabEntry {
+        id: o.get("id")?.as_u64()?,
+        path: serde_json::from_value(field("path")).unwrap_or(None),
+        untitled: serde_json::from_value(field("untitled")).unwrap_or(None),
+        format: serde_json::from_value(field("format")).unwrap_or_default(),
+        language: field("language").as_str().and_then(LanguageId::from_key),
+        language_chosen: field("language_chosen").as_bool().unwrap_or(false),
+        saved_hash: field("saved_hash").as_u64().unwrap_or(0),
+        stored: field("stored").as_bool().unwrap_or(false),
+        cursor: serde_json::from_value(field("cursor")).unwrap_or_default(),
+        preview: serde_json::from_value(field("preview")).unwrap_or_default(),
+    })
+}
+
+/// A session file, read leniently (`None`: missing or not JSON at all).
+fn read_session(path: &Path) -> Option<SessionFile> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let value: serde_json::Value = match serde_json::from_str(&text) {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("dexnotas: {} is not valid ({e})", path.display());
+            return None;
+        }
+    };
+    let field = |k: &str| value.get(k).cloned().unwrap_or(serde_json::Value::Null);
+    let tabs = value.get("tabs")?.as_array()?.iter().filter_map(tab_from).collect();
+    Some(SessionFile {
+        tabs,
+        active: field("active").as_u64().unwrap_or(0) as usize,
+        next_untitled: field("next_untitled").as_u64().unwrap_or(1) as u32,
+        recent: serde_json::from_value(field("recent")).unwrap_or_default(),
+    })
 }
 
 pub struct Session {
@@ -75,7 +134,19 @@ impl Session {
     /// The documents of the last session, the active one, the next "new N" number and the recent
     /// files. Tabs whose file can no longer be read are left out (and named in the problems).
     pub fn restore(&mut self) -> (Vec<Document>, usize, u32, Vec<PathBuf>, Vec<String>) {
-        let file: SessionFile = read_json(&self.session_dir().join("session.json")).unwrap_or_default();
+        let main = self.session_dir().join("session.json");
+        let backup = self.session_dir().join("session.bak.json");
+        let (file, readable) = match read_session(&main) {
+            Some(file) => {
+                // The last session that read well, should a later version not read the next one.
+                let _ = std::fs::copy(&main, &backup);
+                (file, true)
+            }
+            None => match read_session(&backup) {
+                Some(file) => (file, true),
+                None => (SessionFile::default(), !main.exists() && !backup.exists()),
+            },
+        };
         let mut docs = Vec::new();
         let mut problems = Vec::new();
         for entry in &file.tabs {
@@ -122,8 +193,31 @@ impl Session {
                 docs.push(d);
             }
         }
+        let mut next_untitled = file.next_untitled.max(1);
+        if !readable {
+            // No session could be read: the texts it kept come back as tabs rather than being
+            // removed as leftovers by the next save.
+            let mut ids: Vec<u64> = std::fs::read_dir(self.session_dir())
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter_map(|e| e.file_name().to_string_lossy().strip_suffix(".txt").and_then(|s| s.parse().ok()))
+                .collect();
+            ids.sort_unstable();
+            for id in ids {
+                if let Ok(text) = std::fs::read_to_string(self.content_path(id)) {
+                    let mut d = Document::from_text(id, Some(next_untitled), &text);
+                    next_untitled += 1;
+                    d.mark_changed();
+                    docs.push(d);
+                }
+            }
+            if !docs.is_empty() {
+                problems.push(crate::i18n::tf("session_recovered", docs.len()));
+            }
+        }
         let active = file.active.min(docs.len().saturating_sub(1));
-        (docs, active, file.next_untitled.max(1), file.recent, problems)
+        (docs, active, next_untitled, file.recent, problems)
     }
 
     /// Write the session: the tab list, and the text of every new or changed document that
@@ -187,6 +281,21 @@ pub fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
     }
 }
 
+/// A list in a JSON file, item by item: an item this version can't read is left out, not the
+/// whole list (the saved macros, after an update).
+pub fn read_json_list<T: for<'de> Deserialize<'de>>(path: &Path) -> Vec<T> {
+    let Some(value) = read_json::<serde_json::Value>(path) else { return Vec::new() };
+    let items = value.as_array().cloned().unwrap_or_default();
+    let total = items.len();
+    let list: Vec<T> = items.into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect();
+    if list.len() < total {
+        log::warn!("dexnotas: {} of {total} items of {} could not be read", total - list.len(), path.display());
+        // Keep the file as it was, in case a later version reads it.
+        let _ = std::fs::copy(path, path.with_extension("json.old"));
+    }
+    list
+}
+
 pub fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
     let text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
     document::write_atomic(path, text.as_bytes())
@@ -237,6 +346,49 @@ mod tests {
         assert!(dir.path().join("session/1.txt").exists());
         session.save(&[], 0, 2, &[]).unwrap();
         assert!(!dir.path().join("session/1.txt").exists());
+    }
+
+    #[test]
+    fn a_session_from_another_version_still_restores() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path().join("data");
+        let mut session = Session::new(data.clone());
+        let a = Document::from_text(1, Some(1), "uno");
+        let b = Document::from_text(2, Some(2), "dos");
+        session.save(&[a, b], 1, 3, &[]).unwrap();
+        // A newer version wrote a language, an encoding and a field this one doesn't know.
+        let path = data.join("session/session.json");
+        let mut v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        v["tabs"][0]["language"] = "hljs:klingon".into();
+        v["tabs"][1]["format"] = serde_json::json!({ "encoding": "Utf32", "bom": true });
+        v["tabs"][1]["folds"] = serde_json::json!([1, 2]);
+        v["theme"] = "solarized".into();
+        std::fs::write(&path, v.to_string()).unwrap();
+        let (mut docs, active, _, _, problems) = Session::new(data.clone()).restore();
+        assert!(problems.is_empty(), "{problems:?}");
+        assert_eq!(docs.len(), 2);
+        assert_eq!(active, 1);
+        assert_eq!(docs[0].language, None);
+        assert_eq!(docs[1].text().as_str(), "dos");
+        assert!(data.join("session/session.bak.json").exists());
+    }
+
+    #[test]
+    fn an_unreadable_session_falls_back_then_recovers_the_texts() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path().join("data");
+        let mut session = Session::new(data.clone());
+        let a = Document::from_text(5, Some(1), "texto guardado");
+        session.save(std::slice::from_ref(&a), 0, 2, &[]).unwrap();
+        let _ = Session::new(data.clone()).restore(); // keeps session.bak.json
+        std::fs::write(data.join("session/session.json"), "{ broken").unwrap();
+        let (docs, ..) = Session::new(data.clone()).restore();
+        assert_eq!(docs.len(), 1, "from the backup");
+        std::fs::write(data.join("session/session.bak.json"), "also broken").unwrap();
+        let (mut docs, _, _, _, problems) = Session::new(data.clone()).restore();
+        assert_eq!(docs.len(), 1, "from the texts");
+        assert_eq!(docs[0].text().as_str(), "texto guardado");
+        assert_eq!(problems.len(), 1);
     }
 
     #[test]

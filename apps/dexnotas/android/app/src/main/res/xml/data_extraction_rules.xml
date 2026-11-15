@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android's backup and device-to-device transfer (Android 12+): only DexNotas' session,
+     settings and macros ($XDG_DATA_HOME/DexNotas, in the app's private files). -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="share/DexNotas/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="share/DexNotas/" />
+    </device-transfer>
+</data-extraction-rules>

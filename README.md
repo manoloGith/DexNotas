@@ -11,7 +11,9 @@ reapertura fiables y un informe de diagnóstico que se copia sin adb.
 
 - **Pestañas que no se pierden**: las pestañas abiertas y el texto sin guardar vuelven al abrir la
   app, aunque se haya cerrado con la X de DeX o la haya parado el sistema. Se guardan un momento
-  después de cada cambio y al perder el foco. Opcionalmente, también los archivos.
+  después de cada cambio y al perder el foco. Opcionalmente, también los archivos. Siguen ahí al
+  actualizar la app (aunque cambie el formato de la sesión) y entran en la copia de seguridad de
+  Android, que puede devolverlas tras reinstalar o en un móvil nuevo.
 - **Buscar y reemplazar**: texto o expresión regular, mayúsculas, palabra completa, grupos `$1` al
   reemplazar, todas las coincidencias marcadas, buscar en todas las pestañas, ir a línea.
 - **Resaltado de unos 195 lenguajes**: 25 con tree-sitter (las gramáticas de

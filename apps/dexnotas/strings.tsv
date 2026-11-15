@@ -154,3 +154,4 @@ copy	Copy	Copiar
 paste	Paste	Pegar
 delete_text	Delete	Eliminar
 clipboard_empty	The clipboard has no text	El portapapeles no tiene texto
+session_recovered	The session could not be read: {} saved texts were recovered as new tabs.	No se pudo leer la sesión: se han recuperado {} textos guardados como pestañas nuevas.

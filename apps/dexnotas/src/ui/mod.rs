@@ -205,7 +205,7 @@ impl App {
         let data_dir = session::data_dir();
         let settings: Settings = session::read_json(&data_dir.join("settings.json")).unwrap_or_default();
         crate::i18n::set_language(settings.language);
-        let macros: Vec<Macro> = session::read_json(&data_dir.join("macros.json")).unwrap_or_default();
+        let macros: Vec<Macro> = session::read_json_list(&data_dir.join("macros.json"));
         let mut session = Session::new(data_dir.clone());
         let (docs, active, next_untitled, recent, problems) = session.restore();
         let next_id = docs.iter().map(|d| d.id).max().unwrap_or(0) + 1;

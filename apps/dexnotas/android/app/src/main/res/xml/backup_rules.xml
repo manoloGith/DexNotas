@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android's backup (Android 11 and older): only DexNotas' session, settings and macros
+     ($XDG_DATA_HOME/DexNotas, in the app's private files), so the open tabs and their unsaved text
+     come back after reinstalling the app or on a new device. -->
+<full-backup-content>
+    <include domain="file" path="share/DexNotas/" />
+</full-backup-content>

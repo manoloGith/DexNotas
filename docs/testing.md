@@ -32,6 +32,14 @@ para copiarlo.
 - [ ] Cerrar una pestaña con cambios (Ctrl+W o ×) pregunta Guardar / No guardar / Cancelar.
 - [ ] Ctrl+Tab y Ctrl+Mayús+Tab cambian de pestaña.
 
+Actualizaciones:
+
+- [ ] Con pestañas abiertas (alguna nueva sin guardar y alguna con cambios), instalar encima una
+      versión nueva firmada con la misma clave (0.2.0 → la siguiente): al abrir, están todas, con
+      su texto, su lenguaje y la vista previa como estaban.
+- [ ] (Copia de seguridad de Android activada) Tras desinstalar y reinstalar, Android puede
+      devolver las pestañas de la última copia (se hace como mucho una vez al día).
+
 ## 4. Abrir y guardar
 
 - [ ] Ctrl+O abre el selector de Android; se pueden elegir varios archivos y abren en pestañas.
